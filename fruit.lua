@@ -25,7 +25,7 @@ if game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
         task.wait()
         local remotes = game.ReplicatedStorage:WaitForChild("Remotes")
         remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-        task.wait(5)
+        task.wait(3)
     until not game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
 end
 
