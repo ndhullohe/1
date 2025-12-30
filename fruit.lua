@@ -18,9 +18,12 @@ local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
+print("[AUTOEXEC] Iniciando script...")
+
 -- Aguarda jogo carregar e setar time
 task.spawn(function()
     repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
+    print("[AUTOEXEC] Jogo carregado")
     if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
         local remotes = ReplicatedStorage:WaitForChild("Remotes")
         repeat
@@ -28,6 +31,7 @@ task.spawn(function()
             remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
             task.wait(3)
         until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+        print("[AUTOEXEC] Time escolhido")
     end
 end)
 
@@ -147,14 +151,19 @@ local function setupHighlight(char)
 end
 
 -- Setup inicial (aguarda character estar pronto)
-if LocalPlayer.Character then
-    setupHighlight(LocalPlayer.Character)
-end
+task.spawn(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        setupHighlight(LocalPlayer.Character)
+        print("[AUTOEXEC] Highlight ativado")
+    end
+end)
 
 -- Reconecta ao respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
-    char:WaitForChild("HumanoidRootPart")
-    setupHighlight(char)
+    task.spawn(function()
+        char:WaitForChild("HumanoidRootPart")
+        setupHighlight(char)
+    end)
 end)
 
 -- ═══════════════════════════════════════════════════════
@@ -629,3 +638,4 @@ task.spawn(function()
 end)
 
 print("[SCRIPT] Carregado | Baús: " .. getgenv().ChestCount .. " | Speed: " .. getgenv().TweenSpeed .. " | Delay: " .. getgenv().DelayHop .. "s")
+print("[AUTOEXEC] Script totalmente carregado e ativo!")
