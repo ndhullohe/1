@@ -13,7 +13,7 @@ getgenv().DelayHop = getgenv().DelayHop or 5
 
 if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
 if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
-if getgenv().CollectChests == nil then getgenv().CollectChests = true end
+if getgenv().CollectChests == nil then getgenv().CollectChests = false end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
