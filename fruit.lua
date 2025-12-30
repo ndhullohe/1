@@ -21,11 +21,12 @@ local Workspace = game:GetService("Workspace")
 repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild("DataLoaded")
 
 if game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+    task.wait(5)
     repeat
         task.wait()
         local remotes = game.ReplicatedStorage:WaitForChild("Remotes")
         remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-        task.wait(3)
+        task.wait(5)
     until not game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
 end
 
