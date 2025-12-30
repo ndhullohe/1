@@ -15,7 +15,7 @@ if getgenv().CollectChests == nil then getgenv().CollectChests = true end
 if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
 if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
 if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
-if getgenv().DebugMode == nil then getgenv().DebugMode = false end -- Ativa/desativa prints de debug
+if getgenv().DebugMode == nil then getgenv().DebugMode = false end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -29,32 +29,59 @@ local Workspace = game:GetService("Workspace")
 
 print("[AUTOEXEC] Serviços carregados")
 
+-- Cache de Remotes (usado em várias partes do script)
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 15)
+local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
+
+if not CommF then
+    warn("[AUTOEXEC] AVISO: CommF_ não encontrado! Algumas funcionalidades podem não funcionar.")
+end
+
 -- Aguarda PlayerGui carregar
 repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
 print("[AUTOEXEC] PlayerGui carregado")
 
 -- Seleção de time (ANTES de esperar character completo)
 print("[AUTOEXEC] Aguardando tela de seleção de time aparecer...")
-task.wait(2) -- Aguarda a tela aparecer
-repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character
+task.wait(2)
+
+-- Aguarda tela de seleção com timeout de 30 segundos
+local waitStart = os.clock()
+repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character or (os.clock() - waitStart > 30)
 
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
     print("[AUTOEXEC] Tela de seleção detectada, aguardando 2 segundos...")
-    task.wait(3)
+    task.wait(2)
     print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
+    
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
-    if remotes then
+    if remotes and remotes:FindFirstChild("CommF_") then
+        local attempts = 0
+        local maxAttempts = 10
+        
         repeat
-            task.wait(0.1)
-            pcall(function()
+            attempts = attempts + 1
+            local success, err = pcall(function()
                 remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
             end)
+            
+            if not success and getgenv().DebugMode then
+                warn("[AUTOEXEC] Erro ao escolher time (tentativa " .. attempts .. "/" .. maxAttempts .. "):", err)
+            end
+            
             task.wait(1)
-        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
-        print("[AUTOEXEC] Time escolhido")
+        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or attempts >= maxAttempts
+        
+        if attempts >= maxAttempts then
+            warn("[AUTOEXEC] Falha ao escolher time após", maxAttempts, "tentativas. Tente escolher manualmente.")
+        else
+            print("[AUTOEXEC] Time escolhido com sucesso")
+        end
+    else
+        warn("[AUTOEXEC] Remotes não encontrados! Escolha o time manualmente.")
     end
 else
-    print("[AUTOEXEC] Já possui time")
+    print("[AUTOEXEC] Já possui time ou timeout atingido")
 end
 
 -- AGORA aguarda character spawnar completamente
@@ -71,6 +98,8 @@ local failedStorageFruits = {}
 local currentJobId = game.JobId  -- Detecta mudança de servidor
 
 function StorageFruits(waitForCooldown)
+    if not CommF then return end -- Verifica se CommF_ está disponível
+    
     local currentTime = os.clock()
     local timeSinceLastCall = currentTime - lastStorageTime
     
@@ -120,7 +149,7 @@ function StorageFruits(waitForCooldown)
                 local fruitCode = fruits[tool.Name]
                 if fruitCode then
                     pcall(function()
-                        ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", fruitCode, tool)
+                        CommF:InvokeServer("StoreFruit", fruitCode, tool)
                     end)
                     task.wait(0.7)
                     if backpack:FindFirstChild(tool.Name) == tool then
@@ -135,7 +164,7 @@ function StorageFruits(waitForCooldown)
                 local fruitCode = fruits[tool.Name]
                 if fruitCode then
                     pcall(function()
-                        ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", fruitCode, tool)
+                        CommF:InvokeServer("StoreFruit", fruitCode, tool)
                     end)
                     task.wait(0.7)
                     if character:FindFirstChild(tool.Name) == tool then
@@ -148,11 +177,11 @@ function StorageFruits(waitForCooldown)
 end
 
 -- Gacha Fruit (1x após escolher time)
-if getgenv().GachaFruit then
+if getgenv().GachaFruit and CommF then
     task.spawn(function()
         task.wait(1)
         pcall(function()
-            ReplicatedStorage.Remotes.CommF_:InvokeServer("Cousin", "Buy")
+            CommF:InvokeServer("Cousin", "Buy")
         end)
         task.wait(0.5)
         StorageFruits()
