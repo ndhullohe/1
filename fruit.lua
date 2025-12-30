@@ -28,8 +28,13 @@ local Workspace = game:GetService("Workspace")
 
 print("[AUTOEXEC] Serviços carregados")
 
+-- Aguarda PlayerGui carregar
+repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
+print("[AUTOEXEC] PlayerGui carregado")
+
 -- Seleção de time (ANTES de esperar character completo)
-task.wait(1)
+task.wait(2)
+print("[AUTOEXEC] Verificando se precisa escolher time...")
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
     print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
