@@ -1,10 +1,11 @@
-getgenv().Team = getgenv().Team or "Marines"
-getgenv().CollectFruits = getgenv().CollectFruits ~= false
-getgenv().GachaFruit = getgenv().GachaFruit ~= false
-getgenv().CollectChests = getgenv().CollectChests ~= false
-getgenv().ChestCount = getgenv().ChestCount or 5
-getgenv().TweenSpeed = getgenv().TweenSpeed or 300
-getgenv().DelayHop = getgenv().DelayHop or 5
+-- Configurações (valores padrão se não definidos no executor)
+if getgenv().Team == nil then getgenv().Team = "Marines" end
+if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
+if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
+if getgenv().CollectChests == nil then getgenv().CollectChests = true end
+if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
+if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
+if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -18,21 +19,16 @@ local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
 -- Aguarda jogo carregar e setar time
-repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild("DataLoaded")
-
-if game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    task.wait(5)
+repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
+if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+    local remotes = ReplicatedStorage:WaitForChild("Remotes")
     repeat
         task.wait()
-        local remotes = game.ReplicatedStorage:WaitForChild("Remotes")
         remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-        task.wait(5)
-    until not game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+        task.wait(3)
+    until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
 end
-
--- Aguarda character estar pronto após escolher time
-task.wait(1)
-repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+repeat task.wait() until LocalPlayer.PlayerGui:FindFirstChild("Main")
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
