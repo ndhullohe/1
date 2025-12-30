@@ -13,13 +13,13 @@ local DelayHop = getgenv().DelayHop or 5
 
 -- Booleanos: Permite false no executor
 local CollectFruits = getgenv().CollectFruits
-if CollectFruits == nil then CollectFruits = false end
+if CollectFruits == nil then CollectFruits = true end
 
 local GachaFruit = getgenv().GachaFruit
 if GachaFruit == nil then GachaFruit = true end
 
 local CollectChests = getgenv().CollectChests
-if CollectChests == nil then CollectChests = true end
+if CollectChests == nil then CollectChests = false end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
