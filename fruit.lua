@@ -11,7 +11,7 @@ local config = getgenv().MidgardConfig or {}
 
 -- Extrai todas as configurações da tabela única
 local TweenSpeed = config["TweenSpeed"]
-local DelayHop = config["DelayHop"]
+local ServerHopDelay = config["ServerHopDelay"]
 local CollectFruits = config["CollectFruit"]
 local GachaFruit = config["GachaFruit"]
 local CollectChests = config["CollectChest"]
@@ -670,12 +670,12 @@ task.spawn(function()
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 if totalChestsCollected >= targetCount and not FindNearestFruit() then
-                    task.wait(DelayHop)
+                    task.wait(ServerHopDelay)
                     pcall(TPReturner)
                 end
             else
                 -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
-                task.wait(DelayHop)
+                task.wait(ServerHopDelay)
                 pcall(TPReturner)
             end
             
