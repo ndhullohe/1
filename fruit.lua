@@ -19,22 +19,24 @@ local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
 -- Aguarda jogo carregar e setar time
-repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
-if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    local remotes = ReplicatedStorage:WaitForChild("Remotes")
-    repeat
-        task.wait()
-        remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-        task.wait(3)
-    until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
-end
+task.spawn(function()
+    repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
+    if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+        local remotes = ReplicatedStorage:WaitForChild("Remotes")
+        repeat
+            task.wait()
+            remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
+            task.wait(3)
+        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+    end
+end)
 
 -- Aguarda character estar pronto
-task.wait(1)
 if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
-repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+char:WaitForChild("HumanoidRootPart", 10)
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
