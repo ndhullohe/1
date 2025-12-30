@@ -22,16 +22,24 @@ print("[AUTOEXEC] Iniciando script...")
 
 -- Aguarda jogo carregar e setar time
 task.spawn(function()
-    repeat task.wait() until game:IsLoaded() and LocalPlayer:FindFirstChild("DataLoaded")
+    repeat task.wait() until game:IsLoaded()
+    task.wait(2) -- Pequeno delay para garantir que tudo carregou
     print("[AUTOEXEC] Jogo carregado")
+    
     if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-        local remotes = ReplicatedStorage:WaitForChild("Remotes")
-        repeat
-            task.wait()
-            remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-            task.wait(3)
-        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
-        print("[AUTOEXEC] Time escolhido")
+        local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+        if remotes then
+            repeat
+                task.wait()
+                pcall(function()
+                    remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
+                end)
+                task.wait(3)
+            until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+            print("[AUTOEXEC] Time escolhido")
+        end
+    else
+        print("[AUTOEXEC] Tela de seleção não encontrada, já tem time")
     end
 end)
 
