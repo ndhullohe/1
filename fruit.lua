@@ -1,12 +1,11 @@
--- [AUTOEXEC] Aguarda game e LocalPlayer estarem carregados
+-- [AUTOEXEC] Aguarda game carregar
 repeat task.wait() until game:IsLoaded()
-repeat task.wait() until game.Players.LocalPlayer
-print("[AUTOEXEC] LocalPlayer carregado")
+print("[AUTOEXEC] Game carregado")
 
--- Aguarda o personagem carregar antes de configurar
+-- Aguarda LocalPlayer
+repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
-repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-print("[AUTOEXEC] Character carregado")
+print("[AUTOEXEC] LocalPlayer carregado")
 
 -- Configurações (valores padrão se não definidos no executor)
 if getgenv().Team == nil then getgenv().Team = "Marines" end
@@ -27,26 +26,32 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
 
-print("[AUTOEXEC] Iniciando sistema...")
+print("[AUTOEXEC] Serviços carregados")
 
--- Seleção de time (se ainda não foi escolhido)
-task.wait(1) -- Aguarda interface carregar
+-- Seleção de time (ANTES de esperar character completo)
+task.wait(1)
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
     print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
     if remotes then
         repeat
-            task.wait()
+            task.wait(0.1)
             pcall(function()
                 remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
             end)
-            task.wait(2)
+            task.wait(1)
         until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
-        print("[AUTOEXEC] Time escolhido com sucesso")
+        print("[AUTOEXEC] Time escolhido")
     end
 else
-    print("[AUTOEXEC] Time já escolhido anteriormente")
+    print("[AUTOEXEC] Já possui time")
 end
+
+-- AGORA aguarda character spawnar completamente
+print("[AUTOEXEC] Aguardando character spawnar...")
+repeat task.wait() until LocalPlayer.Character
+repeat task.wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+print("[AUTOEXEC] Character pronto!")
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
