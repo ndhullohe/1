@@ -10,12 +10,12 @@ local Team = getgenv().Team
 local config = getgenv().MidgardConfig or {}
 
 -- Extrai todas as configurações da tabela única
-local TweenSpeed = config["TweenSpeed"]
-local ServerHopDelay = config["ServerHopDelay"]
+local TweenSpeed = config["TweenSpeed"] or 300
+local ServerHopDelay = config["ServerHopDelay"] or 5
 local CollectFruits = config["CollectFruit"]
 local GachaFruit = config["GachaFruit"]
 local CollectChests = config["CollectChest"]
-local ChestCount = config["ChestCount"]
+local ChestCount = config["ChestCount"] or 5
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -352,7 +352,7 @@ local function TweenToPosition(targetCFrame)
     end)
 
     local startTime = os.clock()
-    local timeout = math.max(3, dist / speed + 2)
+    local timeout = math.max(3, dist / TweenSpeed + 2)
     while task.wait(0.1) do
         if completed then break end
         if os.clock() - startTime > timeout then
@@ -498,10 +498,6 @@ end
 task.spawn(function()
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not CollectFruits then 
-        return 
-    end
 
     local triedFruits = {}  -- Cache de frutas já tentadas
     local totalChestsCollected = 0  -- Contador persistente de baús
@@ -614,41 +610,41 @@ task.spawn(function()
     end
     
     while task.wait(1.5) do
-        -- Verifica se o farm ainda está ativo
-        if not CollectFruits then 
-            break 
-        end
+        local hasFruitToCollect = false
         
-        -- 1) PRIORIDADE: COLETAR TODAS AS FRUTAS DISPONÍVEIS
-        local hasFruits = true
-        local fruitsCollected = 0
-        
-        while hasFruits do
-            local fruitData = FindNearestFruit()
+        -- 1) COLETA FRUTAS (se ativado)
+        if CollectFruits == true then
+            local hasFruits = true
+            local fruitsCollected = 0
             
-            if fruitData then
-                local success = CollectFruit(fruitData)
-                if success then
-                    fruitsCollected = fruitsCollected + 1
+            while hasFruits do
+                local fruitData = FindNearestFruit()
+                
+                if fruitData then
+                    hasFruitToCollect = true
+                    local success = CollectFruit(fruitData)
+                    if success then
+                        fruitsCollected = fruitsCollected + 1
+                    end
+                    task.wait(0.8)
+                else
+                    hasFruits = false
                 end
-                task.wait(0.8)
-            else
-                hasFruits = false
             end
+            
+            -- Limpa cache quando não há mais frutas
+            triedFruits = {}
         end
-        
-        -- Limpa cache quando não há mais frutas
-        triedFruits = {}
         
         -- 2) SEM FRUTAS: Vai para baús ou hop
-        if not FindNearestFruit() then
+        if not hasFruitToCollect and (CollectFruits ~= true or not FindNearestFruit()) then
             -- Se coleta de baús está ATIVADA
             if CollectChests == true and not getgenv().IsCollectingChests then
                 getgenv().IsCollectingChests = true
                 
                 while totalChestsCollected < ChestCount do
-                    -- Verifica se apareceu fruta (prioridade)
-                    if FindNearestFruit() then
+                    -- Verifica se apareceu fruta (se coleta ativada)
+                    if CollectFruits == true and FindNearestFruit() then
                         break
                     end
                     
@@ -665,7 +661,12 @@ task.spawn(function()
                 getgenv().IsCollectingChests = false
                 
                 -- HOP se atingiu a meta de baús E não há frutas
-                if totalChestsCollected >= ChestCount and not FindNearestFruit() then
+                local shouldHop = totalChestsCollected >= ChestCount
+                if CollectFruits == true then
+                    shouldHop = shouldHop and not FindNearestFruit()
+                end
+                
+                if shouldHop then
                     task.wait(ServerHopDelay)
                     pcall(TPReturner)
                 end
