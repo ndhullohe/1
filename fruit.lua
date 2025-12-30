@@ -15,6 +15,7 @@ if getgenv().CollectChests == nil then getgenv().CollectChests = true end
 if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
 if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
 if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
+if getgenv().DebugMode == nil then getgenv().DebugMode = false end -- Ativa/desativa prints de debug
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -38,7 +39,7 @@ task.wait(2) -- Aguarda a tela aparecer
 repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character
 
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    print("[AUTOEXEC] Tela de seleção detectada, aguardando 5 segundos...")
+    print("[AUTOEXEC] Tela de seleção detectada, aguardando 2 segundos...")
     task.wait(2)
     print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
@@ -284,13 +285,35 @@ task.spawn(function()
 end)
 
 -- ═══════════════════════════════════════════════════════
--- FUNÇÃO AUXILIAR: Verificação de Saúde
+-- FUNÇÕES AUXILIARES
 -- ═══════════════════════════════════════════════════════
 local function IsCharacterAlive()
     local char = LocalPlayer.Character
     if not char then return false end
     local hum = char:FindFirstChild("Humanoid")
     return hum and hum.Health > 0
+end
+
+local function HasFruitInInventory()
+    local char = LocalPlayer.Character
+    local backpack = LocalPlayer.Backpack
+    if not backpack then return false end
+    
+    for _, item in ipairs(backpack:GetChildren()) do
+        if item:IsA("Tool") and item.Name:find("Fruit") then
+            return true
+        end
+    end
+    
+    if char then
+        for _, item in ipairs(char:GetChildren()) do
+            if item:IsA("Tool") and item.Name:find("Fruit") then
+                return true
+            end
+        end
+    end
+    
+    return false
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -472,18 +495,18 @@ end
 -- Prioridade: Frutas → Baús → Server Hop
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
-    print("[DEBUG FARM] Entrando no loop de farm...")
+    if getgenv().DebugMode then print("[DEBUG FARM] Entrando no loop de farm...") end
     
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    print("[DEBUG FARM] Character pronto, iniciando farm...")
+    if getgenv().DebugMode then print("[DEBUG FARM] Character pronto, iniciando farm...") end
     
     if not getgenv().CollectFruits then 
-        print("[DEBUG FARM] CollectFruits está desativado")
+        if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits está desativado") end
         return 
     end
     
-    print("[DEBUG FARM] CollectFruits ativado, iniciando coleta...")
+    if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits ativado, iniciando coleta...") end
 
     local triedFruits = {}  -- Cache de frutas já tentadas
     local totalChestsCollected = 0  -- Contador persistente de baús
@@ -583,31 +606,10 @@ task.spawn(function()
         StorageFruits(true)
         task.wait(1.0)
         
-        -- Verifica se ainda há frutas no backpack/character (não conseguiu guardar)
-        local hasFruitInInventory = false
-        local currentChar = LocalPlayer.Character
-        local backpack = LocalPlayer.Backpack
-        
-        for _, item in ipairs(backpack:GetChildren()) do
-            if item:IsA("Tool") and item.Name:find("Fruit") then
-                hasFruitInInventory = true
-                break
-            end
-        end
-        
-        if not hasFruitInInventory and currentChar then
-            for _, item in ipairs(currentChar:GetChildren()) do
-                if item:IsA("Tool") and item.Name:find("Fruit") then
-                    hasFruitInInventory = true
-                    break
-                end
-            end
-        end
-        
         StopTween()
         
         -- Se não conseguiu guardar E a fruta ainda existe no mundo, marca como tentada
-        if hasFruitInInventory and fruitData.model and fruitData.model.Parent then
+        if HasFruitInInventory() and fruitData.model and fruitData.model.Parent then
             triedFruits[fruitData.model] = true
             return false  -- Não coletou com sucesso
         end
@@ -615,14 +617,14 @@ task.spawn(function()
         return collected or (not fruitData.model.Parent)
     end
 
-    print("[DEBUG FARM] Iniciando while loop principal...")
+    if getgenv().DebugMode then print("[DEBUG FARM] Iniciando while loop principal...") end
     
     while task.wait(1.5) do
-        print("[DEBUG FARM] Ciclo do loop, CollectFruits =", getgenv().CollectFruits)
+        if getgenv().DebugMode then print("[DEBUG FARM] Ciclo do loop, CollectFruits =", getgenv().CollectFruits) end
         
         -- Verifica se o farm ainda está ativo
         if not getgenv().CollectFruits then 
-            print("[DEBUG FARM] CollectFruits desativado, saindo do loop")
+            if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits desativado, saindo do loop") end
             break 
         end
         
