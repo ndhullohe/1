@@ -167,12 +167,16 @@ task.spawn(function()
 end)
 
 -- Reconecta ao respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.spawn(function()
-        char:WaitForChild("HumanoidRootPart")
-        setupHighlight(char)
+if LocalPlayer then
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.spawn(function()
+            pcall(function()
+                char:WaitForChild("HumanoidRootPart", 10)
+                setupHighlight(char)
+            end)
+        end)
     end)
-end)
+end
 
 -- ═══════════════════════════════════════════════════════
 -- ANTI-SIT: Prevenir Sentar
@@ -196,7 +200,9 @@ task.spawn(function()
         setupAntiSit(LocalPlayer.Character)
     end
     
-    LocalPlayer.CharacterAdded:Connect(setupAntiSit)
+    if LocalPlayer then
+        LocalPlayer.CharacterAdded:Connect(setupAntiSit)
+    end
 end)
 
 -- ═══════════════════════════════════════════════════════
@@ -453,17 +459,19 @@ task.spawn(function()
     local totalChestsCollected = 0  -- Contador persistente de baús
 
     -- Evento de spawn: Para tween e detecta mudança de servidor
-    LocalPlayer.CharacterAdded:Connect(function()
-        getgenv().IsCollectingChests = false
-        StopTween()
-        
-        -- Limpa cache APENAS se mudou de servidor (JobId diferente)
-        if game.JobId ~= currentJobId then
-            failedStorageFruits = {}
-            currentJobId = game.JobId
-        end
-        -- Se foi só morte, mantém cache (storage continua cheio)
-    end)
+    if LocalPlayer then
+        LocalPlayer.CharacterAdded:Connect(function()
+            getgenv().IsCollectingChests = false
+            StopTween()
+            
+            -- Limpa cache APENAS se mudou de servidor (JobId diferente)
+            if game.JobId ~= currentJobId then
+                failedStorageFruits = {}
+                currentJobId = game.JobId
+            end
+            -- Se foi só morte, mantém cache (storage continua cheio)
+        end)
+    end
 
     local function FindNearestFruit()
         local char = LocalPlayer.Character
