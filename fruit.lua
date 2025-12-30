@@ -28,7 +28,13 @@ if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
         task.wait(3)
     until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
 end
-repeat task.wait() until LocalPlayer.PlayerGui:FindFirstChild("Main")
+
+-- Aguarda character estar pronto
+task.wait(1)
+if not LocalPlayer.Character then
+    LocalPlayer.CharacterAdded:Wait()
+end
+repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
