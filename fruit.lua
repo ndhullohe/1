@@ -11,7 +11,7 @@ if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
 if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
 if getgenv().CollectChests == nil then getgenv().CollectChests = true end
 if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
-if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 100 end
+if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
 if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
 
 -- Cache de serviços (otimização)
