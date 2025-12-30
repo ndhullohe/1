@@ -31,13 +31,6 @@ task.spawn(function()
     end
 end)
 
--- Aguarda character estar pronto
-if not LocalPlayer.Character then
-    LocalPlayer.CharacterAdded:Wait()
-end
-local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-char:WaitForChild("HumanoidRootPart", 10)
-
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
 -- ═══════════════════════════════════════════════════════
