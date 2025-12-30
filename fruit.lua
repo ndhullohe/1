@@ -1,7 +1,7 @@
 getgenv().Team = getgenv().Team or "Marines"
-getgenv().CollectFruits = getgenv().CollectFruits ~= true
-getgenv().GachaFruit = getgenv().GachaFruit ~= true
-getgenv().CollectChests = getgenv().CollectChests ~= true
+getgenv().CollectFruits = getgenv().CollectFruits ~= false
+getgenv().GachaFruit = getgenv().GachaFruit ~= false
+getgenv().CollectChests = getgenv().CollectChests ~= false
 getgenv().ChestCount = getgenv().ChestCount or 5
 getgenv().TweenSpeed = getgenv().TweenSpeed or 300
 getgenv().DelayHop = getgenv().DelayHop or 5
@@ -31,12 +31,8 @@ if game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
 end
 
 -- Aguarda character estar pronto após escolher time
-task.wait(2)
-if not LocalPlayer.Character then
-    LocalPlayer.CharacterAdded:Wait()
-end
-local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-char:WaitForChild("HumanoidRootPart", 10)
+task.wait(1)
+repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
