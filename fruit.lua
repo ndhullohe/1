@@ -1,7 +1,7 @@
 getgenv().Team = getgenv().Team or "Marines"
-getgenv().CollectFruits = getgenv().CollectFruits ~= false
-getgenv().GachaFruit = getgenv().GachaFruit ~= false
-getgenv().CollectChests = getgenv().CollectChests ~= false
+getgenv().CollectFruits = getgenv().CollectFruits ~= true
+getgenv().GachaFruit = getgenv().GachaFruit ~= true
+getgenv().CollectChests = getgenv().CollectChests ~= true
 getgenv().ChestCount = getgenv().ChestCount or 5
 getgenv().TweenSpeed = getgenv().TweenSpeed or 300
 getgenv().DelayHop = getgenv().DelayHop or 5
