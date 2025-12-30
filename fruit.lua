@@ -5,15 +5,21 @@ repeat task.wait() until game:IsLoaded()
 repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
 
--- Configurações (define padrões e respeita valores do executor)
-getgenv().Team = getgenv().Team or "Marines"
-getgenv().TweenSpeed = getgenv().TweenSpeed or 300
-getgenv().ChestCount = getgenv().ChestCount or 5
-getgenv().DelayHop = getgenv().DelayHop or 5
+-- Configurações: Lê do executor OU usa padrões
+local Team = getgenv().Team or "Marines"
+local TweenSpeed = getgenv().TweenSpeed or 300
+local ChestCount = getgenv().ChestCount or 5
+local DelayHop = getgenv().DelayHop or 5
 
-if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
-if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
-if getgenv().CollectChests == nil then getgenv().CollectChests = true end
+-- Booleanos: Permite false no executor
+local CollectFruits = getgenv().CollectFruits
+if CollectFruits == nil then CollectFruits = false end
+
+local GachaFruit = getgenv().GachaFruit
+if GachaFruit == nil then GachaFruit = true end
+
+local CollectChests = getgenv().CollectChests
+if CollectChests == nil then CollectChests = true end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -50,7 +56,7 @@ if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
         repeat
             attempts = attempts + 1
             pcall(function()
-                remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
+                remotes.CommF_:InvokeServer("SetTeam", Team)
             end)
             
             task.wait(1)
@@ -149,7 +155,7 @@ function StorageFruits(waitForCooldown)
 end
 
 -- Gacha Fruit (1x após escolher time)
-if getgenv().GachaFruit and CommF then
+if GachaFruit and CommF then
     task.spawn(function()
         task.wait(1)
         pcall(function()
@@ -334,7 +340,7 @@ local function TweenToPosition(targetCFrame, speed)
     end
 
     local dist = (targetCFrame.Position - hrp.Position).Magnitude
-    speed = getgenv().TweenSpeed  -- Sempre usa o valor da flag
+    speed = TweenSpeed
     if dist < 5 then return true end
 
     local tweenInfo = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
@@ -422,7 +428,7 @@ local function CollectChest(chest)
     
     getgenv().Tweening = true
 
-    local success = TweenToPosition(chest:GetPivot(), getgenv().TweenSpeed)
+    local success = TweenToPosition(chest:GetPivot(), TweenSpeed)
 
     if not success then
         getgenv().Tweening = false
@@ -498,7 +504,7 @@ task.spawn(function()
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     
-    if not getgenv().CollectFruits then 
+    if not CollectFruits then 
         return 
     end
 
@@ -558,7 +564,7 @@ task.spawn(function()
         
         getgenv().Tweening = true
         
-        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0), getgenv().TweenSpeed)
+        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0), TweenSpeed)
         
         if not success then
             StopTween()
@@ -613,7 +619,7 @@ task.spawn(function()
     
     while task.wait(1.5) do
         -- Verifica se o farm ainda está ativo
-        if not getgenv().CollectFruits then 
+        if not CollectFruits then 
             break 
         end
         
@@ -640,12 +646,12 @@ task.spawn(function()
         
         -- 2) SEM FRUTAS: Vai para baús
         if not FindNearestFruit() then
-            local shouldCollectChests = getgenv().CollectChests
+            local shouldCollectChests = CollectChests
             local isCollecting = getgenv().IsCollectingChests
             
             if shouldCollectChests and not isCollecting then
                 getgenv().IsCollectingChests = true
-                local targetCount = getgenv().ChestCount
+                local targetCount = ChestCount
                 
                 while totalChestsCollected < targetCount do
                     -- Verifica se apareceu fruta (prioridade)
@@ -667,12 +673,12 @@ task.spawn(function()
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 if totalChestsCollected >= targetCount and not FindNearestFruit() then
-                    task.wait(getgenv().DelayHop)
+                    task.wait(DelayHop)
                     pcall(TPReturner)
                 end
             elseif not shouldCollectChests then
                 -- Se coleta de baús desativada e sem frutas, hop direto
-                task.wait(getgenv().DelayHop)
+                task.wait(DelayHop)
                 pcall(TPReturner)
             end
             
