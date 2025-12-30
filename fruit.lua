@@ -1,3 +1,13 @@
+-- [AUTOEXEC] Aguarda game e LocalPlayer estarem carregados
+repeat task.wait() until game:IsLoaded()
+repeat task.wait() until game.Players.LocalPlayer
+print("[AUTOEXEC] LocalPlayer carregado")
+
+-- Aguarda o personagem carregar antes de configurar
+local LocalPlayer = game.Players.LocalPlayer
+repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+print("[AUTOEXEC] Character carregado")
+
 -- Configurações (valores padrão se não definidos no executor)
 if getgenv().Team == nil then getgenv().Team = "Marines" end
 if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
@@ -15,33 +25,28 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
-print("[AUTOEXEC] Iniciando script...")
+print("[AUTOEXEC] Iniciando sistema...")
 
--- Aguarda jogo carregar e setar time
-task.spawn(function()
-    repeat task.wait() until game:IsLoaded()
-    task.wait(2) -- Pequeno delay para garantir que tudo carregou
-    print("[AUTOEXEC] Jogo carregado")
-    
-    if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-        local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
-        if remotes then
-            repeat
-                task.wait()
-                pcall(function()
-                    remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
-                end)
-                task.wait(3)
-            until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
-            print("[AUTOEXEC] Time escolhido")
-        end
-    else
-        print("[AUTOEXEC] Tela de seleção não encontrada, já tem time")
+-- Seleção de time (se ainda não foi escolhido)
+task.wait(1) -- Aguarda interface carregar
+if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+    print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
+    local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+    if remotes then
+        repeat
+            task.wait()
+            pcall(function()
+                remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
+            end)
+            task.wait(2)
+        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+        print("[AUTOEXEC] Time escolhido com sucesso")
     end
-end)
+else
+    print("[AUTOEXEC] Time já escolhido anteriormente")
+end
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
@@ -453,7 +458,18 @@ end
 -- Prioridade: Frutas → Baús → Server Hop
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
-    if not getgenv().CollectFruits then return end
+    print("[DEBUG FARM] Entrando no loop de farm...")
+    
+    -- Aguarda LocalPlayer e Character estarem prontos
+    repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    print("[DEBUG FARM] Character pronto, iniciando farm...")
+    
+    if not getgenv().CollectFruits then 
+        print("[DEBUG FARM] CollectFruits está desativado")
+        return 
+    end
+    
+    print("[DEBUG FARM] CollectFruits ativado, iniciando coleta...")
 
     local triedFruits = {}  -- Cache de frutas já tentadas
     local totalChestsCollected = 0  -- Contador persistente de baús
@@ -585,9 +601,16 @@ task.spawn(function()
         return collected or (not fruitData.model.Parent)
     end
 
+    print("[DEBUG FARM] Iniciando while loop principal...")
+    
     while task.wait(1.5) do
+        print("[DEBUG FARM] Ciclo do loop, CollectFruits =", getgenv().CollectFruits)
+        
         -- Verifica se o farm ainda está ativo
-        if not getgenv().CollectFruits then break end
+        if not getgenv().CollectFruits then 
+            print("[DEBUG FARM] CollectFruits desativado, saindo do loop")
+            break 
+        end
         
         -- 1) PRIORIDADE: COLETAR TODAS AS FRUTAS DISPONÍVEIS
         local hasFruits = true
