@@ -323,7 +323,7 @@ end
 -- ═══════════════════════════════════════════════════════
 local activeTween = nil
 
-local function TweenToPosition(targetCFrame, speed)
+local function TweenToPosition(targetCFrame)
     local char = LocalPlayer.Character
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -336,10 +336,9 @@ local function TweenToPosition(targetCFrame, speed)
     end
 
     local dist = (targetCFrame.Position - hrp.Position).Magnitude
-    speed = TweenSpeed
     if dist < 5 then return true end
 
-    local tweenInfo = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
+    local tweenInfo = TweenInfo.new(dist / TweenSpeed, Enum.EasingStyle.Linear)
     local tw = TweenService:Create(hrp, tweenInfo, { CFrame = targetCFrame })
     activeTween = tw
     tw:Play()
@@ -424,7 +423,7 @@ local function CollectChest(chest)
     
     getgenv().Tweening = true
 
-    local success = TweenToPosition(chest:GetPivot(), TweenSpeed)
+    local success = TweenToPosition(chest:GetPivot())
 
     if not success then
         getgenv().Tweening = false
@@ -516,6 +515,7 @@ task.spawn(function()
             -- Limpa cache APENAS se mudou de servidor (JobId diferente)
             if game.JobId ~= currentJobId then
                 failedStorageFruits = {}
+                totalChestsCollected = 0  -- Reseta contador ao mudar servidor
                 currentJobId = game.JobId
             end
             -- Se foi só morte, mantém cache (storage continua cheio)
@@ -560,7 +560,7 @@ task.spawn(function()
         
         getgenv().Tweening = true
         
-        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0), TweenSpeed)
+        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0))
         
         if not success then
             StopTween()
@@ -640,26 +640,22 @@ task.spawn(function()
         -- Limpa cache quando não há mais frutas
         triedFruits = {}
         
-        -- 2) SEM FRUTAS: Vai para baús
+        -- 2) SEM FRUTAS: Vai para baús ou hop
         if not FindNearestFruit() then
-            local shouldCollectChests = CollectChests
-            local isCollecting = getgenv().IsCollectingChests
-            
             -- Se coleta de baús está ATIVADA
-            if shouldCollectChests == true and not isCollecting then
+            if CollectChests == true and not getgenv().IsCollectingChests then
                 getgenv().IsCollectingChests = true
-                local targetCount = ChestCount
                 
-                while totalChestsCollected < targetCount do
+                while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (prioridade)
                     if FindNearestFruit() then
                         break
                     end
                     
-                    local collected = CollectMultipleChests(targetCount - totalChestsCollected)
+                    local collected = CollectMultipleChests(ChestCount - totalChestsCollected)
                     totalChestsCollected = totalChestsCollected + collected
                     
-                    if totalChestsCollected >= targetCount or collected == 0 then
+                    if totalChestsCollected >= ChestCount or collected == 0 then
                         break
                     end
                     
@@ -669,7 +665,7 @@ task.spawn(function()
                 getgenv().IsCollectingChests = false
                 
                 -- HOP se atingiu a meta de baús E não há frutas
-                if totalChestsCollected >= targetCount and not FindNearestFruit() then
+                if totalChestsCollected >= ChestCount and not FindNearestFruit() then
                     task.wait(ServerHopDelay)
                     pcall(TPReturner)
                 end
@@ -678,8 +674,6 @@ task.spawn(function()
                 task.wait(ServerHopDelay)
                 pcall(TPReturner)
             end
-            
-            task.wait(1.5)
         end
     end
 end)
