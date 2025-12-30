@@ -5,21 +5,14 @@ repeat task.wait() until game:IsLoaded()
 repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
 
--- Configurações: Lê do executor OU usa padrões
-local Team = getgenv().Team or "Marines"
-local TweenSpeed = getgenv().TweenSpeed or 300
-local ChestCount = getgenv().ChestCount or 5
-local DelayHop = getgenv().DelayHop or 5
-
--- Booleanos: Permite false no executor
+-- Configurações: Lê APENAS do executor (sem padrões)
+local Team = getgenv().Team
+local TweenSpeed = getgenv().TweenSpeed
+local ChestCount = getgenv().ChestCount
+local DelayHop = getgenv().DelayHop
 local CollectFruits = getgenv().CollectFruits
-if CollectFruits == nil then CollectFruits = true end
-
 local GachaFruit = getgenv().GachaFruit
-if GachaFruit == nil then GachaFruit = true end
-
 local CollectChests = getgenv().CollectChests
-if CollectChests == nil then CollectChests = false end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
