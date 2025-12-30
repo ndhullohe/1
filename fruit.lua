@@ -1,11 +1,9 @@
 -- [AUTOEXEC] Aguarda game carregar
 repeat task.wait() until game:IsLoaded()
-print("[AUTOEXEC] Game carregado")
 
 -- Aguarda LocalPlayer
 repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
-print("[AUTOEXEC] LocalPlayer carregado")
 
 -- Configurações (valores padrão se não definidos no executor)
 if getgenv().Team == nil then getgenv().Team = "Marines" end
@@ -13,9 +11,8 @@ if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
 if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
 if getgenv().CollectChests == nil then getgenv().CollectChests = true end
 if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
-if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
+if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 200 end
 if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
-if getgenv().DebugMode == nil then getgenv().DebugMode = false end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -27,22 +24,14 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
 
-print("[AUTOEXEC] Serviços carregados")
-
 -- Cache de Remotes (usado em várias partes do script)
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 15)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 
-if not CommF then
-    warn("[AUTOEXEC] AVISO: CommF_ não encontrado! Algumas funcionalidades podem não funcionar.")
-end
-
 -- Aguarda PlayerGui carregar
 repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
-print("[AUTOEXEC] PlayerGui carregado")
 
 -- Seleção de time (ANTES de esperar character completo)
-print("[AUTOEXEC] Aguardando tela de seleção de time aparecer...")
 task.wait(2)
 
 -- Aguarda tela de seleção com timeout de 30 segundos
@@ -50,9 +39,7 @@ local waitStart = os.clock()
 repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character or (os.clock() - waitStart > 30)
 
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    print("[AUTOEXEC] Tela de seleção detectada, aguardando 2 segundos...")
     task.wait(2)
-    print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
     
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
     if remotes and remotes:FindFirstChild("CommF_") then
@@ -61,34 +48,18 @@ if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
         
         repeat
             attempts = attempts + 1
-            local success, err = pcall(function()
+            pcall(function()
                 remotes.CommF_:InvokeServer("SetTeam", getgenv().Team)
             end)
             
-            if not success and getgenv().DebugMode then
-                warn("[AUTOEXEC] Erro ao escolher time (tentativa " .. attempts .. "/" .. maxAttempts .. "):", err)
-            end
-            
             task.wait(1)
         until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or attempts >= maxAttempts
-        
-        if attempts >= maxAttempts then
-            warn("[AUTOEXEC] Falha ao escolher time após", maxAttempts, "tentativas. Tente escolher manualmente.")
-        else
-            print("[AUTOEXEC] Time escolhido com sucesso")
-        end
-    else
-        warn("[AUTOEXEC] Remotes não encontrados! Escolha o time manualmente.")
     end
-else
-    print("[AUTOEXEC] Já possui time ou timeout atingido")
 end
 
 -- AGORA aguarda character spawnar completamente
-print("[AUTOEXEC] Aguardando character spawnar...")
 repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-print("[AUTOEXEC] Character pronto!")
 
 -- ═══════════════════════════════════════════════════════
 -- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
@@ -211,7 +182,6 @@ end
 task.spawn(function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         setupHighlight(LocalPlayer.Character)
-        print("[AUTOEXEC] Highlight ativado")
     end
 end)
 
@@ -524,18 +494,12 @@ end
 -- Prioridade: Frutas → Baús → Server Hop
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
-    if getgenv().DebugMode then print("[DEBUG FARM] Entrando no loop de farm...") end
-    
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if getgenv().DebugMode then print("[DEBUG FARM] Character pronto, iniciando farm...") end
     
     if not getgenv().CollectFruits then 
-        if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits está desativado") end
         return 
     end
-    
-    if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits ativado, iniciando coleta...") end
 
     local triedFruits = {}  -- Cache de frutas já tentadas
     local totalChestsCollected = 0  -- Contador persistente de baús
@@ -645,15 +609,10 @@ task.spawn(function()
         
         return collected or (not fruitData.model.Parent)
     end
-
-    if getgenv().DebugMode then print("[DEBUG FARM] Iniciando while loop principal...") end
     
     while task.wait(1.5) do
-        if getgenv().DebugMode then print("[DEBUG FARM] Ciclo do loop, CollectFruits =", getgenv().CollectFruits) end
-        
         -- Verifica se o farm ainda está ativo
         if not getgenv().CollectFruits then 
-            if getgenv().DebugMode then print("[DEBUG FARM] CollectFruits desativado, saindo do loop") end
             break 
         end
         
@@ -720,6 +679,3 @@ task.spawn(function()
         end
     end
 end)
-
-print("[SCRIPT] Carregado | Baús: " .. getgenv().ChestCount .. " | Speed: " .. getgenv().TweenSpeed .. " | Delay: " .. getgenv().DelayHop .. "s")
-print("[AUTOEXEC] Script totalmente carregado e ativo!")
