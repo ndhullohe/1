@@ -645,7 +645,8 @@ task.spawn(function()
             local shouldCollectChests = CollectChests
             local isCollecting = getgenv().IsCollectingChests
             
-            if shouldCollectChests and not isCollecting then
+            -- Se coleta de baús está ATIVADA
+            if shouldCollectChests == true and not isCollecting then
                 getgenv().IsCollectingChests = true
                 local targetCount = ChestCount
                 
@@ -672,8 +673,8 @@ task.spawn(function()
                     task.wait(DelayHop)
                     pcall(TPReturner)
                 end
-            elseif not shouldCollectChests then
-                -- Se coleta de baús desativada e sem frutas, hop direto
+            else
+                -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
                 task.wait(DelayHop)
                 pcall(TPReturner)
             end
