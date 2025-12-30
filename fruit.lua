@@ -33,9 +33,10 @@ repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
 print("[AUTOEXEC] PlayerGui carregado")
 
 -- Seleção de time (ANTES de esperar character completo)
-task.wait(5)
 print("[AUTOEXEC] Verificando se precisa escolher time...")
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
+    print("[AUTOEXEC] Tela de seleção detectada, aguardando 5 segundos...")
+    task.wait(5)
     print("[AUTOEXEC] Escolhendo time:", getgenv().Team)
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
     if remotes then
