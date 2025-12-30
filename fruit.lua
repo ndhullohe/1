@@ -5,14 +5,15 @@ repeat task.wait() until game:IsLoaded()
 repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
 
--- Configurações (valores padrão se não definidos no executor)
-if getgenv().Team == nil then getgenv().Team = "Marines" end
+-- Configurações (define padrões e respeita valores do executor)
+getgenv().Team = getgenv().Team or "Marines"
+getgenv().TweenSpeed = getgenv().TweenSpeed or 300
+getgenv().ChestCount = getgenv().ChestCount or 5
+getgenv().DelayHop = getgenv().DelayHop or 5
+
 if getgenv().CollectFruits == nil then getgenv().CollectFruits = true end
 if getgenv().GachaFruit == nil then getgenv().GachaFruit = true end
 if getgenv().CollectChests == nil then getgenv().CollectChests = true end
-if getgenv().ChestCount == nil then getgenv().ChestCount = 5 end
-if getgenv().TweenSpeed == nil then getgenv().TweenSpeed = 300 end
-if getgenv().DelayHop == nil then getgenv().DelayHop = 5 end
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
