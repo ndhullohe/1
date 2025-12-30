@@ -5,14 +5,17 @@ repeat task.wait() until game:IsLoaded()
 repeat task.wait() until game.Players.LocalPlayer
 local LocalPlayer = game.Players.LocalPlayer
 
--- Configurações: Lê APENAS do executor (sem padrões)
+-- Configurações (lê do executor)
 local Team = getgenv().Team
-local TweenSpeed = getgenv().TweenSpeed
-local ChestCount = getgenv().ChestCount
-local DelayHop = getgenv().DelayHop
-local CollectFruits = getgenv().CollectFruits
-local GachaFruit = getgenv().GachaFruit
-local CollectChests = getgenv().CollectChests
+local config = getgenv().MidgardConfig or {}
+
+-- Extrai todas as configurações da tabela única
+local TweenSpeed = config["TweenSpeed"]
+local DelayHop = config["DelayHop"]
+local CollectFruits = config["CollectFruit"]
+local GachaFruit = config["GachaFruit"]
+local CollectChests = config["CollectChest"]
+local ChestCount = config["ChestCount"]
 
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
@@ -470,7 +473,7 @@ local function GetClosestChest()
     return closest
 end
 
-local function CollectChests(targetCount)
+local function CollectMultipleChests(targetCount)
     local collected = 0
     local tried = {}
     
@@ -652,7 +655,7 @@ task.spawn(function()
                         break
                     end
                     
-                    local collected = CollectChests(targetCount - totalChestsCollected)
+                    local collected = CollectMultipleChests(targetCount - totalChestsCollected)
                     totalChestsCollected = totalChestsCollected + collected
                     
                     if totalChestsCollected >= targetCount or collected == 0 then
