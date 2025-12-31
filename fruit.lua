@@ -668,10 +668,15 @@ task.spawn(function()
                 
                 if shouldHop then
                     -- Desliga highlight durante contagem de hop
-                    local highlight = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("highlight")
-                    if highlight then
-                        highlight.Enabled = false
-                    end
+                    pcall(function()
+                        local char = LocalPlayer.Character
+                        if char then
+                            local highlight = char:FindFirstChild("highlight")
+                            if highlight then
+                                highlight.Enabled = false
+                            end
+                        end
+                    end)
                     
                     task.wait(ServerHopDelay)
                     pcall(TPReturner)
@@ -679,10 +684,15 @@ task.spawn(function()
             else
                 -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
                 -- Desliga highlight durante contagem de hop
-                local highlight = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("highlight")
-                if highlight then
-                    highlight.Enabled = false
-                end
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char then
+                        local highlight = char:FindFirstChild("highlight")
+                        if highlight then
+                            highlight.Enabled = false
+                        end
+                    end
+                end)
                 
                 task.wait(ServerHopDelay)
                 pcall(TPReturner)
