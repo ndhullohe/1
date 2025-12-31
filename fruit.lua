@@ -13,6 +13,7 @@ local config = getgenv().MidgardConfig or {}
 local TweenSpeed = config["TweenSpeed"] or 300
 local ServerHopDelay = config["ServerHopDelay"] or 5
 local CollectFruits = config["CollectFruit"]
+local FruitCategories = config["FruitCategories"]  -- Categorias permitidas (nil = todas)
 local GachaFruit = config["GachaFruit"]
 local CollectChests = config["CollectChest"]
 local ChestCount = config["ChestCount"] or 5
@@ -37,6 +38,33 @@ local fruitPriority = {
     ["Flame Fruit"] = 9, ["Spike Fruit"] = 8, ["Smoke Fruit"] = 7,
     ["Bomb Fruit"] = 6, ["Spring Fruit"] = 5, ["Blade Fruit"] = 4,
     ["Spin Fruit"] = 3, ["Rocket Fruit"] = 2,
+}
+
+-- Categorias das frutas (para filtragem opcional)
+local fruitCategories = {
+    -- Common
+    ["Rocket Fruit"] = "Common", ["Spin Fruit"] = "Common", ["Blade Fruit"] = "Common",
+    ["Spring Fruit"] = "Common", ["Bomb Fruit"] = "Common", ["Smoke Fruit"] = "Common",
+    
+    -- Uncommon
+    ["Spike Fruit"] = "Uncommon", ["Flame Fruit"] = "Uncommon", ["Ice Fruit"] = "Uncommon",
+    ["Sand Fruit"] = "Uncommon", ["Dark Fruit"] = "Uncommon", ["Eagle Fruit"] = "Uncommon",
+    
+    -- Rare
+    ["Diamond Fruit"] = "Rare", ["Light Fruit"] = "Rare", ["Rubber Fruit"] = "Rare",
+    ["Ghost Fruit"] = "Rare", ["Magma Fruit"] = "Rare", ["Quake Fruit"] = "Rare",
+    
+    -- Legendary
+    ["Buddha Fruit"] = "Legendary", ["Love Fruit"] = "Legendary", ["Creation Fruit"] = "Legendary",
+    ["Spider Fruit"] = "Legendary", ["Sound Fruit"] = "Legendary", ["Phoenix Fruit"] = "Legendary",
+    ["Portal Fruit"] = "Legendary", ["Lightning Fruit"] = "Legendary", ["Pain Fruit"] = "Legendary",
+    ["Blizzard Fruit"] = "Legendary", ["Gravity Fruit"] = "Legendary", ["Mammoth Fruit"] = "Legendary",
+    
+    -- Mythical
+    ["T-Rex Fruit"] = "Mythical", ["Dough Fruit"] = "Mythical", ["Shadow Fruit"] = "Mythical",
+    ["Venom Fruit"] = "Mythical", ["Gas Fruit"] = "Mythical", ["Spirit Fruit"] = "Mythical",
+    ["Tiger Fruit"] = "Mythical", ["Yeti Fruit"] = "Mythical", ["Kitsune Fruit"] = "Mythical",
+    ["Control Fruit"] = "Mythical", ["Dragon Fruit"] = "Mythical",
 }
 
 -- Códigos de storage das frutas (otimização: declarado 1x ao invés de a cada chamada)
@@ -316,6 +344,25 @@ end)
 -- ═══════════════════════════════════════════════════════
 -- FUNÇÕES: Utilitárias
 -- ═══════════════════════════════════════════════════════
+local function IsCategoryAllowed(fruitName)
+    -- Se FruitCategories não definido ou vazio, permite todas
+    if not FruitCategories or type(FruitCategories) ~= "table" or #FruitCategories == 0 then
+        return true
+    end
+    
+    local category = fruitCategories[fruitName]
+    if not category then return true end  -- Fruta desconhecida = permite
+    
+    -- Verifica se a categoria está na lista permitida
+    for _, allowedCategory in ipairs(FruitCategories) do
+        if category == allowedCategory then
+            return true
+        end
+    end
+    
+    return false
+end
+
 local function RemoveHighlight()
     pcall(function()
         local char = LocalPlayer.Character
@@ -572,7 +619,7 @@ task.spawn(function()
         for _, v in ipairs(Workspace:GetChildren()) do
             if v:IsA("Model") and not triedFruits[v] then
                 local name = v.Name
-                if name:find("Fruit") then
+                if name:find("Fruit") and IsCategoryAllowed(name) then  -- Filtra por categoria
                     local handle = v:FindFirstChild("Handle")
                     if handle and handle:IsA("BasePart") then
                         local dist = (handle.Position - playerPos).Magnitude
