@@ -165,8 +165,6 @@ end
 -- ═══════════════════════════════════════════════════════
 -- VISUAL: Destaque no Personagem (ANTES de iniciar movimento)
 -- ═══════════════════════════════════════════════════════
-local highlightColor = Color3.fromRGB(0, 128, 255)
-
 local function setupHighlight(char)
     if not char then return end
     if char:FindFirstChild("highlight") then return end
@@ -176,8 +174,8 @@ local function setupHighlight(char)
     h.Enabled = true
     h.FillTransparency = 0.5
     h.OutlineTransparency = 0.2
-    h.FillColor = highlightColor
-    h.OutlineColor = highlightColor
+    h.FillColor = Color3.fromRGB(0, 128, 255)
+    h.OutlineColor = Color3.fromRGB(0, 128, 255)
     h.Parent = char
 end
 
@@ -289,6 +287,18 @@ end)
 -- ═══════════════════════════════════════════════════════
 -- FUNÇÕES AUXILIARES
 -- ═══════════════════════════════════════════════════════
+local function RemoveHighlight()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char then
+            local highlight = char:FindFirstChild("highlight")
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end)
+end
+
 local function IsCharacterAlive()
     local char = LocalPlayer.Character
     if not char then return false end
@@ -667,33 +677,13 @@ task.spawn(function()
                 end
                 
                 if shouldHop then
-                    -- Remove highlight durante contagem de hop
-                    pcall(function()
-                        local char = LocalPlayer.Character
-                        if char then
-                            local highlight = char:FindFirstChild("highlight")
-                            if highlight then
-                                highlight:Destroy()
-                            end
-                        end
-                    end)
-                    
+                    RemoveHighlight()
                     task.wait(ServerHopDelay)
                     pcall(TPReturner)
                 end
             else
                 -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
-                -- Remove highlight durante contagem de hop
-                pcall(function()
-                    local char = LocalPlayer.Character
-                    if char then
-                        local highlight = char:FindFirstChild("highlight")
-                        if highlight then
-                            highlight:Destroy()
-                        end
-                    end
-                end)
-                
+                RemoveHighlight()
                 task.wait(ServerHopDelay)
                 pcall(TPReturner)
             end
