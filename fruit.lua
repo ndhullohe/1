@@ -17,6 +17,53 @@ local GachaFruit = config["GachaFruit"]
 local CollectChests = config["CollectChest"]
 local ChestCount = config["ChestCount"] or 5
 
+-- ═══════════════════════════════════════════════════════
+-- CONSTANTES E TABELAS
+-- ═══════════════════════════════════════════════════════
+
+-- Prioridade de frutas (maior número = maior prioridade)
+local fruitPriority = {
+    ["Dragon Fruit"] = 42, ["Control Fruit"] = 41, ["Kitsune Fruit"] = 40,
+    ["Yeti Fruit"] = 39, ["Tiger Fruit"] = 38, ["Spirit Fruit"] = 37,
+    ["Gas Fruit"] = 36, ["Venom Fruit"] = 35, ["Shadow Fruit"] = 34,
+    ["Dough Fruit"] = 33, ["T-Rex Fruit"] = 32, ["Mammoth Fruit"] = 31,
+    ["Gravity Fruit"] = 30, ["Blizzard Fruit"] = 29, ["Pain Fruit"] = 28,
+    ["Lightning Fruit"] = 27, ["Portal Fruit"] = 26, ["Phoenix Fruit"] = 25,
+    ["Sound Fruit"] = 24, ["Spider Fruit"] = 23, ["Creation Fruit"] = 22,
+    ["Love Fruit"] = 21, ["Buddha Fruit"] = 20, ["Quake Fruit"] = 19,
+    ["Magma Fruit"] = 18, ["Ghost Fruit"] = 17, ["Rubber Fruit"] = 16,
+    ["Light Fruit"] = 15, ["Diamond Fruit"] = 14, ["Eagle Fruit"] = 13,
+    ["Dark Fruit"] = 12, ["Sand Fruit"] = 11, ["Ice Fruit"] = 10,
+    ["Flame Fruit"] = 9, ["Spike Fruit"] = 8, ["Smoke Fruit"] = 7,
+    ["Bomb Fruit"] = 6, ["Spring Fruit"] = 5, ["Blade Fruit"] = 4,
+    ["Spin Fruit"] = 3, ["Rocket Fruit"] = 2,
+}
+
+-- Códigos de storage das frutas (otimização: declarado 1x ao invés de a cada chamada)
+local fruitStorageCodes = {
+    ["Rocket Fruit"] = "Rocket-Rocket", ["Spin Fruit"] = "Spin-Spin",
+    ["Blade Fruit"] = "Blade-Blade", ["Spring Fruit"] = "Spring-Spring",
+    ["Bomb Fruit"] = "Bomb-Bomb", ["Smoke Fruit"] = "Smoke-Smoke",
+    ["Spike Fruit"] = "Spike-Spike", ["Flame Fruit"] = "Flame-Flame",
+    ["Eagle Fruit"] = "Eagle-Eagle", ["Ice Fruit"] = "Ice-Ice",
+    ["Sand Fruit"] = "Sand-Sand", ["Dark Fruit"] = "Dark-Dark",
+    ["Diamond Fruit"] = "Diamond-Diamond", ["Light Fruit"] = "Light-Light",
+    ["Rubber Fruit"] = "Rubber-Rubber", ["Creation Fruit"] = "Creation-Creation",
+    ["Ghost Fruit"] = "Ghost-Ghost", ["Magma Fruit"] = "Magma-Magma",
+    ["Quake Fruit"] = "Quake-Quake", ["Buddha Fruit"] = "Buddha-Buddha",
+    ["Love Fruit"] = "Love-Love", ["Spider Fruit"] = "Spider-Spider",
+    ["Sound Fruit"] = "Sound-Fruit", ["Phoenix Fruit"] = "Phoenix-Phoenix",
+    ["Portal Fruit"] = "Portal-Portal", ["Lightning Fruit"] = "Lightning-Lightning",
+    ["Pain Fruit"] = "Pain-Pain", ["Blizzard Fruit"] = "Blizzard-Blizzard",
+    ["Gravity Fruit"] = "Gravity-Gravity", ["Mammoth Fruit"] = "Mammoth-Mammoth",
+    ["T-Rex Fruit"] = "T-Rex-T-Rex", ["Dough Fruit"] = "Dough-Dough",
+    ["Shadow Fruit"] = "Shadow-Shadow", ["Venom Fruit"] = "Venom-Venom",
+    ["Gas Fruit"] = "Gas-Gas", ["Control Fruit"] = "Control-Control",
+    ["Spirit Fruit"] = "Spirit-Spirit", ["Tiger Fruit"] = "Tiger-Tiger",
+    ["Yeti Fruit"] = "Yeti-Yeti", ["Kitsune Fruit"] = "Kitsune-Kitsune",
+    ["Dragon Fruit"] = "Dragon-Dragon",
+}
+
 -- Cache de serviços (otimização)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,10 +78,14 @@ local Workspace = game:GetService("Workspace")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 15)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 
+-- ═══════════════════════════════════════════════════════
+-- INICIALIZAÇÃO: Setup Inicial do Script
+-- ═══════════════════════════════════════════════════════
+
 -- Aguarda PlayerGui carregar
 repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
 
--- Seleção de time (ANTES de esperar character completo)
+-- Seleção de time (ANTES de espawnar character)
 task.wait(2)
 
 -- Aguarda tela de seleção com timeout de 30 segundos
@@ -65,11 +116,13 @@ repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
 -- ═══════════════════════════════════════════════════════
--- ARMAZENAMENTO: Guardar Frutas Coletadas (Declarado antes do Gacha)
+-- FUNÇÕES: Armazenamento de Frutas
 -- ═══════════════════════════════════════════════════════
+
+-- Variáveis de controle do storage
 local lastStorageTime = 0
 local failedStorageFruits = {}
-local currentJobId = game.JobId  -- Detecta mudança de servidor
+local currentJobId = game.JobId
 
 function StorageFruits(waitForCooldown)
     if not CommF then return end -- Verifica se CommF_ está disponível
@@ -94,33 +147,9 @@ function StorageFruits(waitForCooldown)
         local backpack = LocalPlayer.Backpack
         if not character or not backpack then return end
 
-        local fruits = {
-            ["Rocket Fruit"] = "Rocket-Rocket", ["Spin Fruit"] = "Spin-Spin",
-            ["Blade Fruit"] = "Blade-Blade", ["Spring Fruit"] = "Spring-Spring",
-            ["Bomb Fruit"] = "Bomb-Bomb", ["Smoke Fruit"] = "Smoke-Smoke",
-            ["Spike Fruit"] = "Spike-Spike", ["Flame Fruit"] = "Flame-Flame",
-            ["Eagle Fruit"] = "Eagle-Eagle", ["Ice Fruit"] = "Ice-Ice",
-            ["Sand Fruit"] = "Sand-Sand", ["Dark Fruit"] = "Dark-Dark",
-            ["Diamond Fruit"] = "Diamond-Diamond", ["Light Fruit"] = "Light-Light",
-            ["Rubber Fruit"] = "Rubber-Rubber", ["Barrier Fruit"] = "Barrier-Barrier",
-            ["Ghost Fruit"] = "Ghost-Ghost", ["Magma Fruit"] = "Magma-Magma",
-            ["Quake Fruit"] = "Quake-Quake", ["Buddha Fruit"] = "Buddha-Buddha",
-            ["Love Fruit"] = "Love-Love", ["Spider Fruit"] = "Spider-Spider",
-            ["Sound Fruit"] = "Sound-Sound", ["Phoenix Fruit"] = "Phoenix-Phoenix",
-            ["Portal Fruit"] = "Portal-Portal", ["Lightning Fruit"] = "Lightning-Lightning",
-            ["Pain Fruit"] = "Pain-Pain", ["Blizzard Fruit"] = "Blizzard-Blizzard",
-            ["Gravity Fruit"] = "Gravity-Gravity", ["Mammoth Fruit"] = "Mammoth-Mammoth",
-            ["T-Rex Fruit"] = "T-Rex-T-Rex", ["Dough Fruit"] = "Dough-Dough",
-            ["Shadow Fruit"] = "Shadow-Shadow", ["Venom Fruit"] = "Venom-Venom",
-            ["Gas Fruit"] = "Gas-Gas", ["Control Fruit"] = "Control-Control",
-            ["Spirit Fruit"] = "Spirit-Spirit", ["Leopard Fruit"] = "Leopard-Leopard",
-            ["Yeti Fruit"] = "Yeti-Yeti", ["Kitsune Fruit"] = "Kitsune-Kitsune",
-            ["Dragon Fruit"] = "Dragon-Dragon",
-        }
-
         for _, tool in ipairs(backpack:GetChildren()) do
             if not failedStorageFruits[tool] and tool:IsA("Tool") then
-                local fruitCode = fruits[tool.Name]
+                local fruitCode = fruitStorageCodes[tool.Name]
                 if fruitCode then
                     pcall(function()
                         CommF:InvokeServer("StoreFruit", fruitCode, tool)
@@ -135,7 +164,7 @@ function StorageFruits(waitForCooldown)
         
         for _, tool in ipairs(character:GetChildren()) do
             if not failedStorageFruits[tool] and tool:IsA("Tool") then
-                local fruitCode = fruits[tool.Name]
+                local fruitCode = fruitStorageCodes[tool.Name]
                 if fruitCode then
                     pcall(function()
                         CommF:InvokeServer("StoreFruit", fruitCode, tool)
@@ -163,7 +192,7 @@ if GachaFruit and CommF then
 end
 
 -- ═══════════════════════════════════════════════════════
--- VISUAL: Destaque no Personagem (ANTES de iniciar movimento)
+-- FUNÇÕES: Visual (Highlight)
 -- ═══════════════════════════════════════════════════════
 local function setupHighlight(char)
     if not char then return end
@@ -199,7 +228,7 @@ if LocalPlayer then
 end
 
 -- ═══════════════════════════════════════════════════════
--- ANTI-SIT: Prevenir Sentar
+-- FUNÇÕES: Anti-Sit
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
     local function setupAntiSit(char)
@@ -226,7 +255,7 @@ task.spawn(function()
 end)
 
 -- ═══════════════════════════════════════════════════════
--- NOCLIP: Atravessar Paredes Durante Movimento
+-- FUNÇÕES: Noclip (Atravessar Paredes)
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
     local lastUpdate = 0
@@ -285,7 +314,7 @@ task.spawn(function()
 end)
 
 -- ═══════════════════════════════════════════════════════
--- FUNÇÕES AUXILIARES
+-- FUNÇÕES: Utilitárias
 -- ═══════════════════════════════════════════════════════
 local function RemoveHighlight()
     pcall(function()
@@ -329,7 +358,7 @@ local function HasFruitInInventory()
 end
 
 -- ═══════════════════════════════════════════════════════
--- SISTEMA DE MOVIMENTO: Tween
+-- FUNÇÕES: Movimento (Tween)
 -- ═══════════════════════════════════════════════════════
 local activeTween = nil
 
@@ -396,7 +425,7 @@ function StopTween()
 end
 
 -- ═══════════════════════════════════════════════════════
--- SERVER HOP: Trocar de Servidor Automaticamente
+-- FUNÇÕES: Server Hop
 -- ═══════════════════════════════════════════════════════
 local function TPReturner()
     local PlaceID = game.PlaceId
@@ -423,7 +452,7 @@ local function TPReturner()
 end
 
 -- ═══════════════════════════════════════════════════════
--- SISTEMA DE COLETA: Baús
+-- FUNÇÕES: Coleta de Baús
 -- ═══════════════════════════════════════════════════════
 local function CollectChest(chest)
     if not chest or not chest.Parent then return false end
@@ -502,14 +531,14 @@ local function CollectMultipleChests(targetCount)
 end
 
 -- ═══════════════════════════════════════════════════════
--- LÓGICA PRINCIPAL: Auto Farm Loop
--- Prioridade: Frutas → Baús → Server Hop
+-- LOOP PRINCIPAL: Auto Farm
+-- Ordem de execução: Frutas (prioridade) → Baús → Server Hop
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-    local triedFruits = {}  -- Cache de frutas já tentadas
+    local triedFruits = {}  -- Cache de frutas que falharam storage (limpa ao mudar servidor)
     local totalChestsCollected = 0  -- Contador persistente de baús
 
     -- Evento de spawn: Para tween e detecta mudança de servidor
@@ -521,6 +550,7 @@ task.spawn(function()
             -- Limpa cache APENAS se mudou de servidor (JobId diferente)
             if game.JobId ~= currentJobId then
                 failedStorageFruits = {}
+                triedFruits = {}  -- Limpa cache de frutas tentadas
                 totalChestsCollected = 0  -- Reseta contador ao mudar servidor
                 currentJobId = game.JobId
             end
@@ -535,7 +565,9 @@ task.spawn(function()
         if not hrp then return nil end
         
         local playerPos = hrp.Position
-        local nearest, minDist = nil, math.huge
+        local bestFruit = nil
+        local bestPriority = -1
+        local bestDist = math.huge
         
         for _, v in ipairs(Workspace:GetChildren()) do
             if v:IsA("Model") and not triedFruits[v] then
@@ -544,16 +576,20 @@ task.spawn(function()
                     local handle = v:FindFirstChild("Handle")
                     if handle and handle:IsA("BasePart") then
                         local dist = (handle.Position - playerPos).Magnitude
-                        if dist < minDist then
-                            minDist = dist
-                            nearest = {model = v, handle = handle, distance = dist}
+                        local priority = fruitPriority[name] or 1
+                        
+                        -- Prioriza por valor (prioridade), distância só desempata
+                        if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
+                            bestPriority = priority
+                            bestDist = dist
+                            bestFruit = {model = v, handle = handle, distance = dist}
                         end
                     end
                 end
             end
         end
         
-        return nearest
+        return bestFruit
     end
     
     local function CollectFruit(fruitData)
@@ -641,9 +677,6 @@ task.spawn(function()
                     hasFruits = false
                 end
             end
-            
-            -- Limpa cache quando não há mais frutas
-            triedFruits = {}
         end
         
         -- 2) SEM FRUTAS: Vai para baús ou hop
