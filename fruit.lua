@@ -80,7 +80,7 @@ local fruitStorageCodes = {
     ["Ghost Fruit"] = "Ghost-Ghost", ["Magma Fruit"] = "Magma-Magma",
     ["Quake Fruit"] = "Quake-Quake", ["Buddha Fruit"] = "Buddha-Buddha",
     ["Love Fruit"] = "Love-Love", ["Spider Fruit"] = "Spider-Spider",
-    ["Sound Fruit"] = "Sound-Fruit", ["Phoenix Fruit"] = "Phoenix-Phoenix",
+    ["Sound Fruit"] = "Sound-Sound", ["Phoenix Fruit"] = "Phoenix-Phoenix",
     ["Portal Fruit"] = "Portal-Portal", ["Lightning Fruit"] = "Lightning-Lightning",
     ["Pain Fruit"] = "Pain-Pain", ["Blizzard Fruit"] = "Blizzard-Blizzard",
     ["Gravity Fruit"] = "Gravity-Gravity", ["Mammoth Fruit"] = "Mammoth-Mammoth",
