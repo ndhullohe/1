@@ -179,31 +179,20 @@ function StorageFruits(waitForCooldown)
         local backpack = LocalPlayer.Backpack
         if not character or not backpack then return end
 
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if not failedStorageFruits[tool] and tool:IsA("Tool") then
-                local fruitCode = fruitStorageCodes[tool.Name]
-                if fruitCode then
-                    pcall(function()
-                        CommF:InvokeServer("StoreFruit", fruitCode, tool)
-                    end)
-                    task.wait(0.7)
-                    if backpack:FindFirstChild(tool.Name) == tool then
-                        failedStorageFruits[tool] = true
-                    end
-                end
-            end
-        end
-        
-        for _, tool in ipairs(character:GetChildren()) do
-            if not failedStorageFruits[tool] and tool:IsA("Tool") then
-                local fruitCode = fruitStorageCodes[tool.Name]
-                if fruitCode then
-                    pcall(function()
-                        CommF:InvokeServer("StoreFruit", fruitCode, tool)
-                    end)
-                    task.wait(0.7)
-                    if character:FindFirstChild(tool.Name) == tool then
-                        failedStorageFruits[tool] = true
+        -- Consolida backpack e character em uma lista
+        local containers = {backpack, character}
+        for _, container in ipairs(containers) do
+            for _, tool in ipairs(container:GetChildren()) do
+                if not failedStorageFruits[tool] and tool:IsA("Tool") then
+                    local fruitCode = fruitStorageCodes[tool.Name]
+                    if fruitCode then
+                        pcall(function()
+                            CommF:InvokeServer("StoreFruit", fruitCode, tool)
+                        end)
+                        task.wait(0.7)
+                        if container:FindFirstChild(tool.Name) == tool then
+                            failedStorageFruits[tool] = true
+                        end
                     end
                 end
             end
@@ -410,14 +399,11 @@ local function HasFruitInInventory()
     local backpack = LocalPlayer.Backpack
     if not backpack then return false end
     
-    for _, item in ipairs(backpack:GetChildren()) do
-        if item:IsA("Tool") and item.Name:find("Fruit") then
-            return true
-        end
-    end
+    local containers = {backpack}
+    if char then table.insert(containers, char) end
     
-    if char then
-        for _, item in ipairs(char:GetChildren()) do
+    for _, container in ipairs(containers) do
+        for _, item in ipairs(container:GetChildren()) do
             if item:IsA("Tool") and item.Name:find("Fruit") then
                 return true
             end
@@ -789,17 +775,13 @@ task.spawn(function()
         -- 1) COLETA FRUTAS (se ativado)
         if CollectFruits == true then
             local hasFruits = true
-            local fruitsCollected = 0
             
             while hasFruits do
                 local fruitData = FindNearestFruit()
                 
                 if fruitData then
                     hasFruitToCollect = true
-                    local success = CollectFruit(fruitData)
-                    if success then
-                        fruitsCollected = fruitsCollected + 1
-                    end
+                    CollectFruit(fruitData)
                     task.wait(0.3)
                 else
                     hasFruits = false
