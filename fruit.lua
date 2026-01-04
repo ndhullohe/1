@@ -240,12 +240,11 @@ end)
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.spawn(function()
         pcall(function()
-                char:WaitForChild("HumanoidRootPart", 10)
-                setupHighlight(char)
-            end)
+            char:WaitForChild("HumanoidRootPart", 10)
+            setupHighlight(char)
         end)
     end)
-end
+end)
 
 -- ═══════════════════════════════════════════════════════
 -- FUNÇÕES: Anti-Sit
@@ -637,17 +636,16 @@ task.spawn(function()
     LocalPlayer.CharacterAdded:Connect(function()
         isCollectingChests = false
         StopTween()
-            
-            -- Limpa cache APENAS se mudou de servidor (JobId diferente)
-            if game.JobId ~= currentJobId then
-                failedStorageFruits = {}
-                fruitRetryTime = {}  -- Limpa cooldowns de retry
-                totalChestsCollected = 0  -- Reseta contador ao mudar servidor
-                currentJobId = game.JobId
-            end
-            -- Se foi só morte, mantém cache (storage continua cheio)
-        end)
-    end
+        
+        -- Limpa cache APENAS se mudou de servidor (JobId diferente)
+        if game.JobId ~= currentJobId then
+            failedStorageFruits = {}
+            fruitRetryTime = {}  -- Limpa cooldowns de retry
+            totalChestsCollected = 0  -- Reseta contador ao mudar servidor
+            currentJobId = game.JobId
+        end
+        -- Se foi só morte, mantém cache (storage continua cheio)
+    end)
 
     local function FindNearestFruit()
         local char = LocalPlayer.Character
