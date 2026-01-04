@@ -773,7 +773,7 @@ task.spawn(function()
         local hasFruitToCollect = false
         
         -- 1) COLETA FRUTAS (se ativado)
-        if FruitCollect == true then
+        if FruitCollect then
             local hasFruits = true
             
             while hasFruits do
@@ -790,14 +790,14 @@ task.spawn(function()
         end
         
         -- 2) SEM FRUTAS: Vai para baús ou hop
-        if not hasFruitToCollect and (FruitCollect ~= true or not FindNearestFruit()) then
+        if not hasFruitToCollect and (not FruitCollect or not FindNearestFruit()) then
             -- Se coleta de baús está ATIVADA
-            if ChestCollect == true and not isCollectingChests then
+            if ChestCollect and not isCollectingChests then
                 isCollectingChests = true
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
-                    if FruitCollect == true and FindNearestFruit() then
+                    if FruitCollect and FindNearestFruit() then
                         break
                     end
                     
@@ -815,7 +815,7 @@ task.spawn(function()
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 local shouldHop = totalChestsCollected >= ChestCount
-                if FruitCollect == true then
+                if FruitCollect then
                     shouldHop = shouldHop and not FindNearestFruit()
                 end
                 
