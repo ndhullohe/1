@@ -114,14 +114,14 @@ local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
 
 -- Seleção de time (ANTES de espawnar character)
-task.wait(2)
+task.wait(1)
 
 -- Aguarda tela de seleção com timeout de 30 segundos
 local waitStart = os.clock()
 repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character or (os.clock() - waitStart > 30)
 
 if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    task.wait(2)
+    task.wait(1)
     
     local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
     if remotes and remotes:FindFirstChild("CommF_") then
@@ -134,7 +134,7 @@ if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
                 remotes.CommF_:InvokeServer("SetTeam", Team)
             end)
             
-            task.wait(1)
+            task.wait(0.5)
         until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or attempts >= maxAttempts
     end
 end
@@ -719,7 +719,7 @@ task.spawn(function()
                     if success then
                         fruitsCollected = fruitsCollected + 1
                     end
-                    task.wait(0.8)
+                    task.wait(0.3)
                 else
                     hasFruits = false
                 end
