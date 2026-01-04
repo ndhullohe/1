@@ -113,35 +113,66 @@ local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
 -- Aguarda PlayerGui carregar
 repeat task.wait() until LocalPlayer:FindFirstChild("PlayerGui")
 
+-- Debug: Verifica se Team foi definido
+if not Team then
+    warn("[Midgard] AVISO: Team não foi definido! Use getgenv().Team = 'Pirates' ou 'Marines'")
+end
+
 -- Seleção de time (ANTES de espawnar character)
-task.wait(2)
+task.wait(3)
 
--- Aguarda tela de seleção com timeout de 30 segundos
+-- Aguarda tela de seleção com timeout maior (60 segundos)
 local waitStart = os.clock()
-repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character or (os.clock() - waitStart > 30)
+repeat task.wait(0.5) until LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character or (os.clock() - waitStart > 60)
 
-if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") then
-    task.wait(2)
+-- Se a tela de seleção aparecer
+if LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") and not LocalPlayer.Character then
+    print("[Midgard] Tela de seleção detectada, aguardando...")
+    task.wait(3)
     
-    local remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
-    if remotes and remotes:FindFirstChild("CommF_") then
+    -- Tenta selecionar time via CommF_
+    if CommF and Team then
+        print("[Midgard] Tentando selecionar time:", Team)
         local attempts = 0
-        local maxAttempts = 10
+        local maxAttempts = 20
+        local teamSelected = false
         
-        repeat
+        while attempts < maxAttempts and not teamSelected do
             attempts = attempts + 1
-            pcall(function()
-                remotes.CommF_:InvokeServer("SetTeam", Team)
+            
+            -- Múltiplas tentativas de seleção
+            local success, err = pcall(function()
+                CommF:InvokeServer("SetTeam", Team)
             end)
             
-            task.wait(1)
-        until not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or attempts >= maxAttempts
+            if not success then
+                print("[Midgard] Tentativa", attempts, "falhou:", err)
+            end
+            
+            task.wait(2)
+            
+            -- Verifica se saiu da tela de seleção
+            if not LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)") or LocalPlayer.Character then
+                teamSelected = true
+                print("[Midgard] Time selecionado com sucesso!")
+            end
+        end
+        
+        if not teamSelected then
+            warn("[Midgard] FALHA: Não conseguiu selecionar time após", maxAttempts, "tentativas")
+        end
+    elseif not CommF then
+        warn("[Midgard] ERRO: CommF_ não encontrado!")
+    elseif not Team then
+        warn("[Midgard] ERRO: Team não foi definido!")
     end
 end
 
 -- AGORA aguarda character spawnar completamente
+print("[Midgard] Aguardando character spawnar...")
 repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+print("[Midgard] Character spawnou, iniciando farm...")
 
 -- ═══════════════════════════════════════════════════════
 -- FUNÇÕES: Armazenamento de Frutas
@@ -702,70 +733,104 @@ task.spawn(function()
         return collected or (not fruitData.model.Parent)
     end
     
-    while task.wait(1.5) do
-        local hasFruitToCollect = false
+    -- ═══════════════════════════════════════════════════════
+    -- CICLOS DO LOOP PRINCIPAL
+    -- ═══════════════════════════════════════════════════════
+    
+    local function RunFruitCollectionCycle()
+        if CollectFruits ~= true then return false end
         
-        -- 1) COLETA FRUTAS (se ativado)
-        if CollectFruits == true then
-            local hasFruits = true
-            local fruitsCollected = 0
+        local hasFruits = true
+        local fruitsCollected = 0
+        local anyFruitFound = false
+        
+        while hasFruits do
+            local fruitData = FindNearestFruit()
             
-            while hasFruits do
-                local fruitData = FindNearestFruit()
-                
-                if fruitData then
-                    hasFruitToCollect = true
-                    local success = CollectFruit(fruitData)
-                    if success then
-                        fruitsCollected = fruitsCollected + 1
-                    end
-                    task.wait(0.8)
-                else
-                    hasFruits = false
+            if fruitData then
+                anyFruitFound = true
+                local success = CollectFruit(fruitData)
+                if success then
+                    fruitsCollected = fruitsCollected + 1
                 end
+                task.wait(0.8)
+            else
+                hasFruits = false
             end
         end
         
-        -- 2) SEM FRUTAS: Vai para baús ou hop
-        if not hasFruitToCollect and (CollectFruits ~= true or not FindNearestFruit()) then
-            -- Se coleta de baús está ATIVADA
-            if CollectChests == true and not getgenv().IsCollectingChests then
-                getgenv().IsCollectingChests = true
-                
-                while totalChestsCollected < ChestCount do
-                    -- Verifica se apareceu fruta (se coleta ativada)
-                    if CollectFruits == true and FindNearestFruit() then
-                        break
-                    end
-                    
-                    local collected = CollectMultipleChests(ChestCount - totalChestsCollected)
-                    totalChestsCollected = totalChestsCollected + collected
-                    
-                    if totalChestsCollected >= ChestCount or collected == 0 then
-                        break
-                    end
-                    
-                    task.wait(0.5)
-                end
-                
-                getgenv().IsCollectingChests = false
-                
-                -- HOP se atingiu a meta de baús E não há frutas
-                local shouldHop = totalChestsCollected >= ChestCount
-                if CollectFruits == true then
-                    shouldHop = shouldHop and not FindNearestFruit()
-                end
-                
-                if shouldHop then
-                    RemoveHighlight()
-                    task.wait(ServerHopDelay)
-                    pcall(TPReturner)
-                end
-            else
-                -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
-                RemoveHighlight()
-                task.wait(ServerHopDelay)
-                pcall(TPReturner)
+        return anyFruitFound
+    end
+    
+    local function RunChestCollectionCycle()
+        if CollectChests ~= true or getgenv().IsCollectingChests then return 0 end
+        
+        getgenv().IsCollectingChests = true
+        local chestsCollectedThisCycle = 0
+        
+        while totalChestsCollected < ChestCount do
+            -- Pausa coleta se fruta aparecer
+            if CollectFruits == true and FindNearestFruit() then
+                break
+            end
+            
+            local collected = CollectMultipleChests(ChestCount - totalChestsCollected)
+            totalChestsCollected = totalChestsCollected + collected
+            chestsCollectedThisCycle = chestsCollectedThisCycle + collected
+            
+            if totalChestsCollected >= ChestCount or collected == 0 then
+                break
+            end
+            
+            task.wait(0.5)
+        end
+        
+        getgenv().IsCollectingChests = false
+        return chestsCollectedThisCycle
+    end
+    
+    local function CheckServerHopConditions()
+        -- Condição 1: Atingiu meta de baús
+        local chestGoalReached = totalChestsCollected >= ChestCount
+        
+        -- Condição 2: Sem frutas disponíveis (se coleta ativada)
+        local noFruitsAvailable = true
+        if CollectFruits == true then
+            noFruitsAvailable = not FindNearestFruit()
+        end
+        
+        -- Hop se: (Meta de baús atingida OU coleta de baús desativada) E sem frutas
+        local shouldHop = false
+        
+        if CollectChests == true then
+            shouldHop = chestGoalReached and noFruitsAvailable
+        else
+            shouldHop = noFruitsAvailable
+        end
+        
+        return shouldHop
+    end
+    
+    local function PerformServerHop()
+        RemoveHighlight()
+        task.wait(ServerHopDelay)
+        pcall(TPReturner)
+    end
+    
+    -- ═══════════════════════════════════════════════════════
+    -- LOOP PRINCIPAL
+    -- ═══════════════════════════════════════════════════════
+    while task.wait(1.5) do
+        -- Ciclo 1: Coleta de Frutas
+        local hadFruits = RunFruitCollectionCycle()
+        
+        -- Ciclo 2: Coleta de Baús (se sem frutas)
+        if not hadFruits then
+            RunChestCollectionCycle()
+            
+            -- Ciclo 3: Verificar Server Hop
+            if CheckServerHopConditions() then
+                PerformServerHop()
             end
         end
     end
