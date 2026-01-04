@@ -12,10 +12,10 @@ local config = getgenv().MidgardConfig or {}
 -- Extrai todas as configurações da tabela única
 local TweenSpeed = config["TweenSpeed"] or 300
 local ServerHopDelay = config["ServerHopDelay"] or 5
-local CollectFruits = config["CollectFruit"]
+local FruitCollect = config["FruitCollect"]
 local FruitCategories = config["FruitCategories"]  -- Categorias permitidas (nil = todas)
-local GachaFruit = config["GachaFruit"]
-local CollectChests = config["CollectChest"]
+local FruitGacha = config["FruitGacha"]
+local ChestCollect = config["ChestCollect"]
 local ChestCount = config["ChestCount"] or 5
 
 -- Estados dinâmicos (uso interno do script)
@@ -201,7 +201,7 @@ function StorageFruits(waitForCooldown)
 end
 
 -- Gacha Fruit (1x após escolher time)
-if GachaFruit and CommF then
+if FruitGacha and CommF then
     task.spawn(function()
         task.wait(1)
         pcall(function()
@@ -541,7 +541,7 @@ end
 -- ═══════════════════════════════════════════════════════
 -- FUNÇÕES: Coleta de Baús
 -- ═══════════════════════════════════════════════════════
-local function CollectChest(chest)
+local function ChestCollect(chest)
     -- Pré-verificação: garante que baú existe antes de começar
     if not chest or not chest.Parent then return false end
     
@@ -615,7 +615,7 @@ local function CollectMultipleChests(targetCount)
         if not chest or tried[chest] then break end
         tried[chest] = true
         
-        local ok = CollectChest(chest)
+        local ok = ChestCollect(chest)
         if ok then
             collected += 1
         end
@@ -699,7 +699,7 @@ task.spawn(function()
         return bestFruit
     end
     
-    local function CollectFruit(fruitData)
+    local function FruitCollect(fruitData)
         -- Pré-verificação: garante que target ainda existe antes de começar
         if not fruitData or not fruitData.model or not fruitData.model.Parent then
             return false
@@ -773,7 +773,7 @@ task.spawn(function()
         local hasFruitToCollect = false
         
         -- 1) COLETA FRUTAS (se ativado)
-        if CollectFruits == true then
+        if FruitCollect == true then
             local hasFruits = true
             
             while hasFruits do
@@ -781,7 +781,7 @@ task.spawn(function()
                 
                 if fruitData then
                     hasFruitToCollect = true
-                    CollectFruit(fruitData)
+                    FruitCollect(fruitData)
                     task.wait(0.3)
                 else
                     hasFruits = false
@@ -790,14 +790,14 @@ task.spawn(function()
         end
         
         -- 2) SEM FRUTAS: Vai para baús ou hop
-        if not hasFruitToCollect and (CollectFruits ~= true or not FindNearestFruit()) then
+        if not hasFruitToCollect and (FruitCollect ~= true or not FindNearestFruit()) then
             -- Se coleta de baús está ATIVADA
-            if CollectChests == true and not isCollectingChests then
+            if ChestCollect == true and not isCollectingChests then
                 isCollectingChests = true
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
-                    if CollectFruits == true and FindNearestFruit() then
+                    if FruitCollect == true and FindNearestFruit() then
                         break
                     end
                     
@@ -815,7 +815,7 @@ task.spawn(function()
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 local shouldHop = totalChestsCollected >= ChestCount
-                if CollectFruits == true then
+                if FruitCollect == true then
                     shouldHop = shouldHop and not FindNearestFruit()
                 end
                 
