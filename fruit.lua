@@ -18,6 +18,10 @@ local GachaFruit = config["GachaFruit"]
 local CollectChests = config["CollectChest"]
 local ChestCount = config["ChestCount"] or 5
 
+-- Estados dinâmicos (uso interno do script)
+local isTweening = false
+local isCollectingChests = false
+
 -- ═══════════════════════════════════════════════════════
 -- CONSTANTES E TABELAS
 -- ═══════════════════════════════════════════════════════
@@ -309,7 +313,7 @@ task.spawn(function()
             lastCharacter = char
         end
         
-        if getgenv().Tweening then
+        if isTweening then
             local hrp = char:FindFirstChild("HumanoidRootPart")
             if hrp then
                 -- BodyVelocity para noclip
@@ -339,6 +343,25 @@ task.spawn(function()
             end
         end
     end)
+end)
+
+-- Auto-cleanup: Remove BodyClip se morrer
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChild("Humanoid")
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hum and hrp and hum.Health <= 0 then
+                    local bodyClip = hrp:FindFirstChild("BodyClip")
+                    if bodyClip then
+                        bodyClip:Destroy()
+                    end
+                end
+            end
+        end)
+    end
 end)
 
 -- ═══════════════════════════════════════════════════════
@@ -409,7 +432,7 @@ end
 -- ═══════════════════════════════════════════════════════
 local activeTween = nil
 
-local function TweenToPosition(targetCFrame)
+local function TweenToPosition(targetCFrame, targetObject)
     local char = LocalPlayer.Character
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -423,6 +446,11 @@ local function TweenToPosition(targetCFrame)
 
     local dist = (targetCFrame.Position - hrp.Position).Magnitude
     if dist < 5 then return true end
+
+    -- SimulationRadius infinito para melhor controle
+    pcall(function()
+        sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
+    end)
 
     local tweenInfo = TweenInfo.new(dist / TweenSpeed, Enum.EasingStyle.Linear)
     local tw = TweenService:Create(hrp, tweenInfo, { CFrame = targetCFrame })
@@ -438,9 +466,26 @@ local function TweenToPosition(targetCFrame)
     end)
 
     local startTime = os.clock()
-    local timeout = math.max(3, dist / TweenSpeed + 2)
+    -- Timeout dinâmico baseado na distância
+    local timeout = math.max(3, (dist / TweenSpeed) * 1.5)
+    
     while task.wait(0.1) do
         if completed then break end
+        
+        -- Validação contínua: cancela se o alvo desapareceu
+        if targetObject and (not targetObject.Parent) then
+            tw:Cancel()
+            if activeTween == tw then activeTween = nil end
+            return false
+        end
+        
+        -- Verifica distância para auto-cancelamento (segurança)
+        if hrp and targetObject and (hrp.Position - targetObject.Position).Magnitude >= 10000 then
+            tw:Cancel()
+            if activeTween == tw then activeTween = nil end
+            return false
+        end
+        
         if os.clock() - startTime > timeout then
             tw:Cancel()
             activeTween = nil
@@ -450,9 +495,14 @@ local function TweenToPosition(targetCFrame)
     return completed
 end
 
+local isStoppingTween = false
+
 function StopTween()
+    if isStoppingTween then return end
+    isStoppingTween = true
+    
     pcall(function()
-        getgenv().Tweening = false
+        isTweening = false
         
         -- Cancela tween ativo
         if activeTween then
@@ -468,7 +518,11 @@ function StopTween()
             local bodyClip = hrp:FindFirstChild("BodyClip")
             if bodyClip then bodyClip:Destroy() end
         end
+        
+        task.wait(0.1)
     end)
+    
+    isStoppingTween = false
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -502,22 +556,24 @@ end
 -- FUNÇÕES: Coleta de Baús
 -- ═══════════════════════════════════════════════════════
 local function CollectChest(chest)
+    -- Pré-verificação: garante que baú existe antes de começar
     if not chest or not chest.Parent then return false end
     
     -- Verificação de saúde ANTES de iniciar tween
     if not IsCharacterAlive() then return false end
     
-    getgenv().Tweening = true
+    isTweening = true
 
-    local success = TweenToPosition(chest:GetPivot())
+    -- Validação contínua durante tween
+    local success = TweenToPosition(chest:GetPivot(), chest)
 
     if not success then
-        getgenv().Tweening = false
+        isTweening = false
         return false
     end
 
     local startTime = os.clock()
-    local maxWaitTime = 8
+    local maxWaitTime = 6
     repeat 
         task.wait(0.1)
         
@@ -526,7 +582,13 @@ local function CollectChest(chest)
             StopTween()
             return false
         end
-    until not chest or not chest.Parent or chest:GetAttribute("IsDisabled") or (os.clock() - startTime) > maxWaitTime
+        
+        -- Verifica se baú ainda existe
+        if not chest or not chest.Parent then
+            StopTween()
+            return false
+        end
+    until chest:GetAttribute("IsDisabled") or (os.clock() - startTime) > maxWaitTime
 
     task.wait(0.2)
     StopTween()
@@ -585,19 +647,19 @@ task.spawn(function()
     -- Aguarda LocalPlayer e Character estarem prontos
     repeat task.wait() until LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-    local triedFruits = {}  -- Cache de frutas que falharam storage (limpa ao mudar servidor)
+    local fruitRetryTime = {}  -- Sistema de cooldown: {[fruit] = timestamp para retry}
     local totalChestsCollected = 0  -- Contador persistente de baús
 
     -- Evento de spawn: Para tween e detecta mudança de servidor
     if LocalPlayer then
         LocalPlayer.CharacterAdded:Connect(function()
-            getgenv().IsCollectingChests = false
+            isCollectingChests = false
             StopTween()
             
             -- Limpa cache APENAS se mudou de servidor (JobId diferente)
             if game.JobId ~= currentJobId then
                 failedStorageFruits = {}
-                triedFruits = {}  -- Limpa cache de frutas tentadas
+                fruitRetryTime = {}  -- Limpa cooldowns de retry
                 totalChestsCollected = 0  -- Reseta contador ao mudar servidor
                 currentJobId = game.JobId
             end
@@ -615,21 +677,33 @@ task.spawn(function()
         local bestFruit = nil
         local bestPriority = -1
         local bestDist = math.huge
+        local currentTime = os.clock()
+        
+        -- Limpa cooldowns expirados (otimização)
+        for fruit, retryTime in pairs(fruitRetryTime) do
+            if currentTime >= retryTime or not fruit.Parent then
+                fruitRetryTime[fruit] = nil
+            end
+        end
         
         for _, v in ipairs(Workspace:GetChildren()) do
-            if v:IsA("Model") and not triedFruits[v] then
-                local name = v.Name
-                if name:find("Fruit") and IsCategoryAllowed(name) then  -- Filtra por categoria
-                    local handle = v:FindFirstChild("Handle")
-                    if handle and handle:IsA("BasePart") then
-                        local dist = (handle.Position - playerPos).Magnitude
-                        local priority = fruitPriority[name] or 1
-                        
-                        -- Prioriza por valor (prioridade), distância só desempata
-                        if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
-                            bestPriority = priority
-                            bestDist = dist
-                            bestFruit = {model = v, handle = handle, distance = dist}
+            if v:IsA("Model") then
+                -- Verifica cooldown de retry
+                local retryTime = fruitRetryTime[v]
+                if not retryTime or currentTime >= retryTime then
+                    local name = v.Name
+                    if name:find("Fruit") and IsCategoryAllowed(name) then  -- Filtra por categoria
+                        local handle = v:FindFirstChild("Handle")
+                        if handle and handle:IsA("BasePart") then
+                            local dist = (handle.Position - playerPos).Magnitude
+                            local priority = fruitPriority[name] or 1
+                            
+                            -- Prioriza por valor (prioridade), distância só desempata
+                            if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
+                                bestPriority = priority
+                                bestDist = dist
+                                bestFruit = {model = v, handle = handle, distance = dist}
+                            end
                         end
                     end
                 end
@@ -640,19 +714,26 @@ task.spawn(function()
     end
     
     local function CollectFruit(fruitData)
-        if not fruitData or not fruitData.handle or not fruitData.handle.Parent then
+        -- Pré-verificação: garante que target ainda existe antes de começar
+        if not fruitData or not fruitData.model or not fruitData.model.Parent then
+            return false
+        end
+        if not fruitData.handle or not fruitData.handle.Parent then
             return false
         end
         
         -- Verificação de saúde ANTES de iniciar
         if not IsCharacterAlive() then return false end
         
-        getgenv().Tweening = true
+        isTweening = true
         
-        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0))
+        -- Passa o handle para validação contínua durante tween
+        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0), fruitData.handle)
         
         if not success then
             StopTween()
+            -- Cooldown de 60s para retry
+            fruitRetryTime[fruitData.model] = os.clock() + 60
             return false
         end
 
@@ -685,17 +766,17 @@ task.spawn(function()
             end
         until (os.clock() - startWait > 10)
 
-        task.wait(0.5)
+        task.wait(0.3)
         
         -- Tenta guardar frutas
         StorageFruits(true)
-        task.wait(1.0)
+        task.wait(0.7)
         
         StopTween()
         
-        -- Se não conseguiu guardar E a fruta ainda existe no mundo, marca como tentada
+        -- Se não conseguiu guardar E a fruta ainda existe no mundo, adiciona cooldown
         if HasFruitInInventory() and fruitData.model and fruitData.model.Parent then
-            triedFruits[fruitData.model] = true
+            fruitRetryTime[fruitData.model] = os.clock() + 60
             return false  -- Não coletou com sucesso
         end
         
@@ -729,8 +810,8 @@ task.spawn(function()
         -- 2) SEM FRUTAS: Vai para baús ou hop
         if not hasFruitToCollect and (CollectFruits ~= true or not FindNearestFruit()) then
             -- Se coleta de baús está ATIVADA
-            if CollectChests == true and not getgenv().IsCollectingChests then
-                getgenv().IsCollectingChests = true
+            if CollectChests == true and not isCollectingChests then
+                isCollectingChests = true
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
@@ -748,7 +829,7 @@ task.spawn(function()
                     task.wait(0.5)
                 end
                 
-                getgenv().IsCollectingChests = false
+                isCollectingChests = false
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 local shouldHop = totalChestsCollected >= ChestCount
