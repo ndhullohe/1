@@ -237,10 +237,9 @@ task.spawn(function()
 end)
 
 -- Reconecta ao respawn
-if LocalPlayer then
-    LocalPlayer.CharacterAdded:Connect(function(char)
-        task.spawn(function()
-            pcall(function()
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.spawn(function()
+        pcall(function()
                 char:WaitForChild("HumanoidRootPart", 10)
                 setupHighlight(char)
             end)
@@ -270,9 +269,7 @@ task.spawn(function()
         setupAntiSit(LocalPlayer.Character)
     end
     
-    if LocalPlayer then
-        LocalPlayer.CharacterAdded:Connect(setupAntiSit)
-    end
+    LocalPlayer.CharacterAdded:Connect(setupAntiSit)
 end)
 
 -- ═══════════════════════════════════════════════════════
@@ -637,10 +634,9 @@ task.spawn(function()
     local totalChestsCollected = 0  -- Contador persistente de baús
 
     -- Evento de spawn: Para tween e detecta mudança de servidor
-    if LocalPlayer then
-        LocalPlayer.CharacterAdded:Connect(function()
-            isCollectingChests = false
-            StopTween()
+    LocalPlayer.CharacterAdded:Connect(function()
+        isCollectingChests = false
+        StopTween()
             
             -- Limpa cache APENAS se mudou de servidor (JobId diferente)
             if game.JobId ~= currentJobId then
