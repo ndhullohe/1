@@ -17,10 +17,16 @@ local FruitCategories = config["FruitCategories"]  -- Categorias permitidas (nil
 local FruitGacha = config["FruitGacha"]
 local ChestCollect = config["ChestCollect"]
 local ChestCount = config["ChestCount"] or 5
+local FactoryRaid = config["FactoryRaid"]  -- Auto Factory Raid
+local PirateRaid = config["PirateRaid"]  -- Auto Pirate Raid (Castle)
+
+-- Arma selecionada (atualizada automaticamente)
+local SelectWeapon = nil
 
 -- Estados dinâmicos (uso interno do script)
 local isTweening = false
 local isCollectingChests = false
+local isDoingRaid = false
 
 -- Converte FruitCategories em set para lookup rápido
 local allowedCategoriesSet = {}
@@ -33,6 +39,19 @@ end
 -- ═══════════════════════════════════════════════════════
 -- CONSTANTES E TABELAS
 -- ═══════════════════════════════════════════════════════
+
+-- PlaceIds dos Seas
+local SEA_1_PLACEID = 2753915549
+local SEA_2_PLACEID = 4442272183
+local SEA_3_PLACEID = 7449423635
+
+-- Detecta Sea atual
+local CurrentSea = 1
+if game.PlaceId == SEA_2_PLACEID then
+    CurrentSea = 2
+elseif game.PlaceId == SEA_3_PLACEID then
+    CurrentSea = 3
+end
 
 -- Prioridade de frutas (maior número = maior prioridade)
 local fruitPriority = {
@@ -102,6 +121,15 @@ local fruitStorageCodes = {
     ["Spirit Fruit"] = "Spirit-Spirit", ["Tiger Fruit"] = "Tiger-Tiger",
     ["Yeti Fruit"] = "Yeti-Yeti", ["Kitsune Fruit"] = "Kitsune-Kitsune",
     ["Dragon Fruit"] = "Dragon-Dragon",
+}
+
+-- Mobs do Pirate Raid (Castle Raid)
+local castleRaidMobs = {
+    "Galley Pirate", "Galley Captain", "Raider", "Mercenary",
+    "Vampire", "Zombie", "Snow Trooper", "Winter Warrior",
+    "Lab Subordinate", "Horned Warrior", "Magma Ninja", "Lava Pirate",
+    "Ship Deckhand", "Ship Engineer", "Ship Steward", "Ship Officer",
+    "Arctic Warrior", "Snow Lurker", "Sea Soldier", "Water Fighter"
 }
 
 -- Cache de serviços (otimização)
@@ -625,8 +653,359 @@ local function CollectMultipleChests(targetCount)
 end
 
 -- ═══════════════════════════════════════════════════════
+-- FUNÇÕES: Sistema de Ataque (para Raids)
+-- ═══════════════════════════════════════════════════════
+
+-- Auto-seleciona arma Melee do backpack
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function()
+            local backpack = LocalPlayer.Backpack
+            if not backpack then return end
+            
+            -- Procura primeira arma Melee disponível
+            for _, weapon in ipairs(backpack:GetChildren()) do
+                if weapon:IsA("Tool") and weapon.ToolTip == "Melee" then
+                    SelectWeapon = weapon.Name
+                    break
+                end
+            end
+        end)
+    end
+end)
+
+local function EquipWeapon(weaponName)
+    if not weaponName then return false end
+    
+    local char = LocalPlayer.Character
+    local backpack = LocalPlayer.Backpack
+    if not char or not backpack then return false end
+    
+    -- Verifica se já está equipada
+    local equippedTool = char:FindFirstChildOfClass("Tool")
+    if equippedTool and equippedTool.Name == weaponName then
+        return true
+    end
+    
+    -- Procura no backpack
+    local weapon = backpack:FindFirstChild(weaponName)
+    if weapon and weapon:IsA("Tool") then
+        pcall(function()
+            char.Humanoid:EquipTool(weapon)
+        end)
+        task.wait(0.3)
+        return true
+    end
+    
+    return false
+end
+
+local function AttackEnemy(enemy)
+    if not enemy or not enemy.Parent then return false end
+    
+    local char = LocalPlayer.Character
+    if not char then return false end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local enemyHrp = enemy:FindFirstChild("HumanoidRootPart")
+    local enemyHum = enemy:FindFirstChild("Humanoid")
+    
+    if not hrp or not enemyHrp or not enemyHum then return false end
+    if enemyHum.Health <= 0 then return false end
+    
+    -- Posiciona perto do inimigo
+    local attackPos = enemyHrp.CFrame * CFrame.new(0, 0, 3)
+    hrp.CFrame = attackPos
+    
+    -- Click para atacar (simula ataque básico)
+    pcall(function()
+        game:GetService("VirtualUser"):CaptureController()
+        game:GetService("VirtualUser"):ClickButton1(Vector2.new(850, 500))
+    end)
+    
+    return enemyHum.Health > 0
+end
+
+local function GetNearestEnemy(maxDistance, mobNames)
+    local char = LocalPlayer.Character
+    if not char then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local playerPos = hrp.Position
+    local nearest = nil
+    local minDist = maxDistance or math.huge
+    
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if not enemies then return nil end
+    
+    for _, enemy in ipairs(enemies:GetChildren()) do
+        if enemy:IsA("Model") then
+            local enemyHrp = enemy:FindFirstChild("HumanoidRootPart")
+            local enemyHum = enemy:FindFirstChild("Humanoid")
+            
+            if enemyHrp and enemyHum and enemyHum.Health > 0 then
+                -- Se mobNames fornecido, filtra por nome
+                local nameMatch = true
+                if mobNames then
+                    nameMatch = false
+                    for _, mobName in ipairs(mobNames) do
+                        if enemy.Name == mobName then
+                            nameMatch = true
+                            break
+                        end
+                    end
+                end
+                
+                if nameMatch then
+                    local dist = (enemyHrp.Position - playerPos).Magnitude
+                    if dist < minDist then
+                        minDist = dist
+                        nearest = enemy
+                    end
+                end
+            end
+        end
+    end
+    
+    return nearest
+end
+
+-- ═══════════════════════════════════════════════════════
+-- FUNÇÕES: Factory Raid
+-- ═══════════════════════════════════════════════════════
+local factoryRaidPos = CFrame.new(448.46756, 199.356781, -441.389252)
+local factoryRaidActive = false
+
+local function DoFactoryRaid()
+    if not IsCharacterAlive() then return false end
+    
+    -- Procura o Core (se existe = raid está ativo)
+    local core = GetNearestEnemy(nil, {"Core"})
+    
+    if core then
+        factoryRaidActive = true
+        isDoingRaid = true
+        
+        -- Equipa arma se configurada
+        if SelectWeapon then
+            EquipWeapon(SelectWeapon)
+        end
+        
+        local coreHrp = core:FindFirstChild("HumanoidRootPart")
+        if coreHrp then
+            -- Tween até o Core
+            isTweening = true
+            TweenToPosition(factoryRaidPos, nil)
+            
+            -- Loop de ataque
+            repeat
+                task.wait(0.05)
+                
+                -- Valida que ainda está vivo e raid ativa
+                if not IsCharacterAlive() or not FactoryRaid then
+                    factoryRaidActive = false
+                    break
+                end
+                
+                -- Verifica se Core ainda existe
+                local coreHum = core:FindFirstChild("Humanoid")
+                if not coreHum or coreHum.Health <= 0 then
+                    factoryRaidActive = false
+                    break
+                end
+                
+                -- Reequipa arma se necessário
+                if SelectWeapon then
+                    local char = LocalPlayer.Character
+                    local equippedTool = char and char:FindFirstChildOfClass("Tool")
+                    if not equippedTool or equippedTool.Name ~= SelectWeapon then
+                        EquipWeapon(SelectWeapon)
+                    end
+                end
+                
+                -- Ataca o Core
+                AttackEnemy(core)
+                
+            until not core or not core.Parent or not factoryRaidActive
+            
+            StopTween()
+        end
+        
+        factoryRaidActive = false
+    end
+    
+    isDoingRaid = false
+    return core ~= nil
+end
+
+-- ═══════════════════════════════════════════════════════
+-- FUNÇÕES: Pirate Raid (Castle Raid)
+-- ═══════════════════════════════════════════════════════
+local pirateRaidPos = CFrame.new(-5496.17432, 313.768921, -2841.53027, 0.924894512, 7.37058015e-09, 0.380223751, 3.5881019e-08, 1, -1.06665446e-07, -0.380223751, 1.12297109e-07, 0.924894512)
+local pirateRaidCheckPos = CFrame.new(-5539.3115234375, 313.800537109375, -2972.372314453125)
+local pirateRaidActive = false
+
+local function GetPirateRaidBoss()
+    -- Detecta o boss (inimigo com MAIOR HP do raid)
+    local enemies = Workspace:FindFirstChild("Enemies")
+    if not enemies then return nil end
+    
+    local boss = nil
+    local maxHP = 0
+    
+    for _, enemy in ipairs(enemies:GetChildren()) do
+        if enemy:IsA("Model") then
+            local enemyHum = enemy:FindFirstChild("Humanoid")
+            if enemyHum and enemyHum.Health > 0 then
+                -- Verifica se é mob do pirate raid
+                local isRaidMob = false
+                for _, mobName in ipairs(castleRaidMobs) do
+                    if enemy.Name == mobName then
+                        isRaidMob = true
+                        break
+                    end
+                end
+                
+                if isRaidMob and enemyHum.MaxHealth > maxHP then
+                    maxHP = enemyHum.MaxHealth
+                    boss = enemy
+                end
+            end
+        end
+    end
+    
+    return boss
+end
+
+local function DoPirateRaid()
+    if not IsCharacterAlive() then return false end
+    
+    pirateRaidActive = true
+    isDoingRaid = true
+    
+    -- Equipa arma Melee
+    if SelectWeapon then
+        EquipWeapon(SelectWeapon)
+    end
+    
+    -- 1º: Procura BOSS (tankudo com mais HP)
+    local boss = GetPirateRaidBoss()
+    
+    if boss then
+        -- FOCA NO BOSS para garantir last hit e ganhar fruta
+        local bossHrp = boss:FindFirstChild("HumanoidRootPart")
+        local bossHum = boss:FindFirstChild("Humanoid")
+        
+        if bossHrp and bossHum then
+            -- Tween até o boss
+            isTweening = true
+            TweenToPosition(bossHrp.CFrame * CFrame.new(0, 0, 3), bossHrp)
+            
+            -- Ataca boss até morrer
+            repeat
+                task.wait(0.05)
+                
+                if not IsCharacterAlive() or not PirateRaid then
+                    pirateRaidActive = false
+                    break
+                end
+                
+                bossHum = boss:FindFirstChild("Humanoid")
+                if not bossHum or bossHum.Health <= 0 then
+                    pirateRaidActive = false
+                    break
+                end
+                
+                -- Reequipa arma se necessário
+                if SelectWeapon then
+                    local char = LocalPlayer.Character
+                    local equippedTool = char and char:FindFirstChildOfClass("Tool")
+                    if not equippedTool or equippedTool.Name ~= SelectWeapon then
+                        EquipWeapon(SelectWeapon)
+                    end
+                end
+                
+                AttackEnemy(boss)
+                
+                -- Verifica se spawnou outro boss (maior HP)
+                local newBoss = GetPirateRaidBoss()
+                if newBoss and newBoss ~= boss then
+                    boss = newBoss
+                    bossHrp = boss:FindFirstChild("HumanoidRootPart")
+                    if bossHrp then
+                        TweenToPosition(bossHrp.CFrame * CFrame.new(0, 0, 3), bossHrp)
+                    end
+                end
+                
+            until not boss or not boss.Parent or not pirateRaidActive
+            
+            StopTween()
+        end
+    else
+        -- Sem boss: ataca mobs normais (qualquer distância)
+        local enemy = GetNearestEnemy(nil, castleRaidMobs)
+        
+        if enemy then
+            local enemyHrp = enemy:FindFirstChild("HumanoidRootPart")
+            if enemyHrp then
+                -- Equipa arma
+                if SelectWeapon then
+                    EquipWeapon(SelectWeapon)
+                end
+                
+                isTweening = true
+                TweenToPosition(enemyHrp.CFrame * CFrame.new(0, 0, 3), enemyHrp)
+                
+                local attackStart = os.clock()
+                while enemy and enemy.Parent and IsCharacterAlive() and pirateRaidActive do
+                    -- PRIORIDADE: Verifica se boss spawnou
+                    local newBoss = GetPirateRaidBoss()
+                    if newBoss then
+                        break  -- Para de atacar mob normal e vai para boss
+                    end
+                    
+                    local enemyHum = enemy:FindFirstChild("Humanoid")
+                    if not enemyHum or enemyHum.Health <= 0 then break end
+                    
+                    AttackEnemy(enemy)
+                    task.wait(0.1)
+                    
+                    if os.clock() - attackStart > 15 then break end
+                end
+                
+                StopTween()
+            end
+        else
+            -- Sem inimigos - vai para área do raid
+            local mobFound = false
+            for _, mobName in ipairs(castleRaidMobs) do
+                if ReplicatedStorage:FindFirstChild(mobName) then
+                    mobFound = true
+                    break
+                end
+            end
+            
+            if mobFound then
+                -- Tween até área do raid
+                isTweening = true
+                TweenToPosition(pirateRaidPos, nil)
+                StopTween()
+                task.wait(0.5)
+            else
+                pirateRaidActive = false
+                task.wait(2)
+            end
+        end
+    end
+    
+    isDoingRaid = false
+    return true
+end
+
+-- ═══════════════════════════════════════════════════════
 -- LOOP PRINCIPAL: Auto Farm
--- Ordem de execução: Frutas (prioridade) → Baús → Server Hop
+-- Ordem de execução: Frutas → Raids → Baús → Server Hop
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
     -- Aguarda LocalPlayer e Character estarem prontos
@@ -770,10 +1149,54 @@ task.spawn(function()
         return collected or (not model.Parent)
     end
     
-    while task.wait(1.5) do
+    while task.wait(1) do
+        -- ═══════════════════════════════════════════════════════
+        -- PRIORIDADE 1: RAIDS (Factory e Pirate) - SEMPRE PRIMEIRO
+        -- Executa apenas raid correspondente ao Sea atual
+        -- ═══════════════════════════════════════════════════════
+        local raidDone = false
+        
+        if not isDoingRaid then
+            -- Factory Raid (Sea 2 apenas)
+            if FactoryRaid and CurrentSea == 2 then
+                local core = GetNearestEnemy(nil, {"Core"})
+                if core then
+                    DoFactoryRaid()
+                    raidDone = true
+                    task.wait(0.5)
+                end
+            end
+            
+            -- Pirate Raid (Sea 3 apenas)
+            if PirateRaid and CurrentSea == 3 and not raidDone then
+                -- Verifica se raid está ativo (mobs spawned)
+                local raidActive = false
+                for _, mobName in ipairs(castleRaidMobs) do
+                    if ReplicatedStorage:FindFirstChild(mobName) then
+                        raidActive = true
+                        break
+                    end
+                end
+                
+                if raidActive then
+                    DoPirateRaid()
+                    raidDone = true
+                    task.wait(0.5)
+                end
+            end
+        end
+        
+        -- Se fez raid, pula para próxima iteração (raids têm prioridade total)
+        if raidDone then
+            task.wait(0.5)
+            continue
+        end
+        
+        -- ═══════════════════════════════════════════════════════
+        -- PRIORIDADE 2: FRUTAS
+        -- ═══════════════════════════════════════════════════════
         local hasFruitToCollect = false
         
-        -- 1) COLETA FRUTAS (se ativado)
         if FruitCollect then
             local hasFruits = true
             
@@ -790,8 +1213,10 @@ task.spawn(function()
             end
         end
         
-        -- 2) SEM FRUTAS: Vai para baús ou hop
-        if not hasFruitToCollect and (not FruitCollect or not FindNearestFruit()) then
+        -- ═══════════════════════════════════════════════════════
+        -- PRIORIDADE 3: BAÚS (só se não há frutas)
+        -- ═══════════════════════════════════════════════════════
+        if not hasFruitToCollect and (not FruitCollect or not FindNearestFruit()) and not isDoingRaid then
             -- Se coleta de baús está ATIVADA
             if ChestCollect and not isCollectingChests then
                 isCollectingChests = true
