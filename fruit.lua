@@ -233,7 +233,7 @@ local function setupHighlight(char)
     local box = Instance.new("SelectionBox")
     box.Name = "GlowBox"
     box.Adornee = char
-    box.LineThickness = 0.05  -- Espessura da linha (ajuste aqui: 0.01 a 0.1)
+    box.LineThickness = 0.1  -- Espessura da linha (ajuste aqui: 0.01 a 0.1)
     box.Color3 = Color3.fromRGB(0, 128, 255)
     box.SurfaceTransparency = 1  -- Apenas contorno
     box.Parent = char
@@ -446,8 +446,14 @@ local function TweenToPosition(targetCFrame, targetObject)
         end
     end
 
-    -- Ajuste de altura: alinha Y com o destino antes de mover
-    hrp.CFrame = CFrame.new(hrp.Position.X, targetCFrame.Position.Y, hrp.Position.Z)
+    -- Ajuste de altura com tween suave
+    local heightDiff = math.abs(targetCFrame.Position.Y - hrp.Position.Y)
+    if heightDiff > 10 then
+        local heightAdjust = CFrame.new(hrp.Position.X, targetCFrame.Position.Y, hrp.Position.Z)
+        local heightTween = TweenService:Create(hrp, TweenInfo.new(0.5, Enum.EasingStyle.Linear), { CFrame = heightAdjust })
+        heightTween:Play()
+        heightTween.Completed:Wait()
+    end
 
     -- SimulationRadius infinito para melhor controle
     pcall(function()
