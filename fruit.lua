@@ -551,25 +551,51 @@ end
 local function TPReturner()
     local PlaceID = game.PlaceId
     
+    print("[SERVER HOP] Buscando servidores...")
+    
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
             game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100")
         )
     end)
     
-    if not success then return end
+    if not success then 
+        warn("[SERVER HOP] Erro ao buscar servidores:", Site)
+        return false
+    end
+    
+    if not Site or not Site.data then
+        warn("[SERVER HOP] Resposta inválida da API")
+        return false
+    end
     
     local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers then
+        if v.id ~= game.JobId and v.playing < v.maxPlayers then
             table.insert(servers, v.id)
         end
     end
     
-    if #servers > 0 then
-        local randomServer = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
+    print("[SERVER HOP] Encontrados", #servers, "servidores disponíveis")
+    
+    if #servers == 0 then
+        warn("[SERVER HOP] Nenhum servidor disponível encontrado")
+        return false
     end
+    
+    local randomServer = servers[math.random(1, #servers)]
+    print("[SERVER HOP] Teleportando para servidor:", randomServer)
+    
+    local teleportSuccess = pcall(function()
+        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
+    end)
+    
+    if not teleportSuccess then
+        warn("[SERVER HOP] Falha ao teleportar")
+        return false
+    end
+    
+    return true
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -1187,6 +1213,7 @@ task.spawn(function()
             -- Se coleta de baús está ATIVADA
             if EnableChestCollect and not isCollectingChests then
                 isCollectingChests = true
+                local noChestsFound = false
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
@@ -1197,7 +1224,13 @@ task.spawn(function()
                     local collected = CollectMultipleChests(ChestCount - totalChestsCollected)
                     totalChestsCollected = totalChestsCollected + collected
                     
-                    if totalChestsCollected >= ChestCount or collected == 0 then
+                    if totalChestsCollected >= ChestCount then
+                        break
+                    end
+                    
+                    -- Se não coletou nenhum baú = não há mais baús disponíveis
+                    if collected == 0 then
+                        noChestsFound = true
                         break
                     end
                     
@@ -1206,30 +1239,71 @@ task.spawn(function()
                 
                 isCollectingChests = false
                 
-                -- HOP se atingiu a meta de baús E não há frutas
-                local shouldHop = totalChestsCollected >= ChestCount
-                if EnableFruitCollect then
-                    shouldHop = shouldHop and not FindNearestFruit()
-                end
+                -- HOP se: atingiu meta OU não tem mais baús
+                local shouldHop = totalChestsCollected >= ChestCount or noChestsFound
                 
-                if shouldHop then
-                    RemoveHighlight()
-                    task.wait(ServerHopDelay)
-                    pcall(TPReturner)
-                end
-            else
-                -- Coleta de baús DESATIVADA: verifica se deve fazer hop
-                local shouldHop = true
-                
-                -- Se coleta de frutas está ativada, só faz hop se não houver frutas
+                -- Se coleta de frutas ativada, só faz hop se não houver frutas
                 if EnableFruitCollect and FindNearestFruit() then
                     shouldHop = false
                 end
                 
                 if shouldHop then
+                    print("[FARM] Iniciando server hop - Baús coletados:", totalChestsCollected)
                     RemoveHighlight()
                     task.wait(ServerHopDelay)
-                    pcall(TPReturner)
+                    
+                    local attempts = 0
+                    local maxAttempts = 3
+                    
+                    while attempts < maxAttempts do
+                        attempts = attempts + 1
+                        print("[FARM] Tentativa de hop", attempts, "de", maxAttempts)
+                        
+                        if TPReturner() then
+                            task.wait(5)
+                            break
+                        end
+                        
+                        if attempts < maxAttempts then
+                            warn("[FARM] Falha na tentativa", attempts, "- Aguardando 3s antes de retry")
+                            task.wait(3)
+                        end
+                    end
+                    
+                    if attempts >= maxAttempts then
+                        warn("[FARM] Todas tentativas de hop falharam - Resetando contador de baús")
+                        totalChestsCollected = 0
+                    end
+                end
+            else
+                -- Coleta de baús DESATIVADA: faz hop direto
+                local shouldHop = true
+                
+                -- Se coleta de frutas ativada, só faz hop se não houver frutas
+                if EnableFruitCollect and FindNearestFruit() then
+                    shouldHop = false
+                end
+                
+                if shouldHop then
+                    print("[FARM] Hop direto - Coleta de baús desativada")
+                    RemoveHighlight()
+                    task.wait(ServerHopDelay)
+                    
+                    local attempts = 0
+                    local maxAttempts = 3
+                    
+                    while attempts < maxAttempts do
+                        attempts = attempts + 1
+                        
+                        if TPReturner() then
+                            task.wait(5)
+                            break
+                        end
+                        
+                        if attempts < maxAttempts then
+                            task.wait(3)
+                        end
+                    end
                 end
             end
         end
