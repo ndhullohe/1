@@ -561,7 +561,7 @@ local function TPReturner()
     
     local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers and v.playing <= 9 then
+        if v.playing < v.maxPlayers and v.playing >= 6 and v.playing <= 9 then
             table.insert(servers, v.id)
         end
     end
