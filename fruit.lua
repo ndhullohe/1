@@ -551,7 +551,7 @@ end
 local function TPReturner()
     local PlaceID = game.PlaceId
     
-    print("[SERVER HOP] Buscando servidores...")
+    print("[SERVER HOP] Buscando servidores com max 10 players...")
     
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
@@ -569,29 +569,30 @@ local function TPReturner()
         return false
     end
     
-    local servers = {}
+    local validServers = {}
+    
     for _, v in ipairs(Site.data) do
-        if v.id ~= game.JobId and v.playing < v.maxPlayers then
-            table.insert(servers, v.id)
+        if v.id ~= game.JobId and v.playing <= 10 then
+            table.insert(validServers, v.id)
         end
     end
     
-    print("[SERVER HOP] Encontrados", #servers, "servidores disponíveis")
+    print("[SERVER HOP] Encontrados", #validServers, "servidores com ≤10 players")
     
-    if #servers == 0 then
-        warn("[SERVER HOP] Nenhum servidor disponível encontrado")
+    if #validServers == 0 then
+        warn("[SERVER HOP] Nenhum servidor com ≤10 players encontrado")
         return false
     end
     
-    local randomServer = servers[math.random(1, #servers)]
+    local randomServer = validServers[math.random(1, #validServers)]
     print("[SERVER HOP] Teleportando para servidor:", randomServer)
     
-    local teleportSuccess = pcall(function()
+    local teleportSuccess, teleportError = pcall(function()
         TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
     end)
     
     if not teleportSuccess then
-        warn("[SERVER HOP] Falha ao teleportar")
+        warn("[SERVER HOP] Falha ao teleportar:", teleportError)
         return false
     end
     
