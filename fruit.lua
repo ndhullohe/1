@@ -437,15 +437,6 @@ local function TweenToPosition(targetCFrame, targetObject)
         end
     end
 
-    -- Ajuste de altura com tween suave
-    local heightDiff = math.abs(targetCFrame.Position.Y - hrp.Position.Y)
-    if heightDiff > 10 then
-        local heightAdjust = CFrame.new(hrp.Position.X, targetCFrame.Position.Y, hrp.Position.Z)
-        local heightTween = TweenService:Create(hrp, TweenInfo.new(0.5, Enum.EasingStyle.Linear), { CFrame = heightAdjust })
-        heightTween:Play()
-        heightTween.Completed:Wait()
-    end
-
     -- SimulationRadius infinito para melhor controle
     pcall(function()
         sethiddenproperty(LocalPlayer, "SimulationRadius", math.huge)
