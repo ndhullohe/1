@@ -222,8 +222,8 @@ local function setupHighlight(char)
     local h = Instance.new("Highlight")
     h.Name = "highlight"
     h.Enabled = true
-    h.FillTransparency = 0.5
-    h.OutlineTransparency = 0.2
+    h.FillTransparency = 1  -- Totalmente transparente (sem preenchimento)
+    h.OutlineTransparency = 0  -- Outline visível
     h.FillColor = Color3.fromRGB(0, 128, 255)
     h.OutlineColor = Color3.fromRGB(0, 128, 255)
     h.Parent = char
@@ -428,6 +428,16 @@ local function TweenToPosition(targetCFrame, targetObject)
 
     local dist = (targetCFrame.Position - hrp.Position).Magnitude
     if dist < 5 then return true end
+
+    -- Anti-colisão melhorado: desativa colisão de TODAS as partes
+    for _, part in pairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.CanCollide then
+            part.CanCollide = false
+        end
+    end
+
+    -- Ajuste de altura: alinha Y com o destino antes de mover
+    hrp.CFrame = CFrame.new(hrp.Position.X, targetCFrame.Position.Y, hrp.Position.Z)
 
     -- SimulationRadius infinito para melhor controle
     pcall(function()
