@@ -12,13 +12,13 @@ local config = getgenv().MidgardConfig or {}
 -- Extrai todas as configurações da tabela única
 local TweenSpeed = config["TweenSpeed"] or 300
 local ServerHopDelay = config["ServerHopDelay"] or 5
-local FruitCollect = config["FruitCollect"]
-local FruitCategories = config["FruitCategories"]  -- Categorias permitidas (nil = todas)
+local EnableFruitCollect = config["FruitCollect"]
+local FruitCategories = config["FruitCategories"]
 local FruitGacha = config["FruitGacha"]
-local ChestCollect = config["ChestCollect"]
+local EnableChestCollect = config["ChestCollect"]
 local ChestCount = config["ChestCount"] or 5
-local FactoryRaid = config["FactoryRaid"]  -- Auto Factory Raid
-local PirateRaid = config["PirateRaid"]  -- Auto Pirate Raid (Castle)
+local FactoryRaid = config["FactoryRaid"]
+local PirateRaid = config["PirateRaid"]
 
 -- Arma selecionada (atualizada automaticamente)
 local SelectWeapon = nil
@@ -1166,7 +1166,7 @@ task.spawn(function()
         -- ═══════════════════════════════════════════════════════
         local hasFruitToCollect = false
         
-        if FruitCollect then
+        if EnableFruitCollect then
             local hasFruits = true
             
             while hasFruits do
@@ -1183,14 +1183,14 @@ task.spawn(function()
         -- ═══════════════════════════════════════════════════════
         -- PRIORIDADE 3: BAÚS (só se não há frutas)
         -- ═══════════════════════════════════════════════════════
-        if not hasFruitToCollect and (not FruitCollect or not FindNearestFruit()) and not isDoingRaid then
+        if not hasFruitToCollect and (not EnableFruitCollect or not FindNearestFruit()) and not isDoingRaid then
             -- Se coleta de baús está ATIVADA
-            if ChestCollect and not isCollectingChests then
+            if EnableChestCollect and not isCollectingChests then
                 isCollectingChests = true
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
-                    if FruitCollect and FindNearestFruit() then
+                    if EnableFruitCollect and FindNearestFruit() then
                         break
                     end
                     
@@ -1208,7 +1208,7 @@ task.spawn(function()
                 
                 -- HOP se atingiu a meta de baús E não há frutas
                 local shouldHop = totalChestsCollected >= ChestCount
-                if FruitCollect then
+                if EnableFruitCollect then
                     shouldHop = shouldHop and not FindNearestFruit()
                 end
                 
@@ -1218,7 +1218,7 @@ task.spawn(function()
                     pcall(TPReturner)
                 end
             else
-                -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
+                -- Se coleta de baús DESATIVADA e sem frutas, hop direto
                 RemoveHighlight()
                 task.wait(ServerHopDelay)
                 pcall(TPReturner)
