@@ -1183,7 +1183,7 @@ task.spawn(function()
         -- ═══════════════════════════════════════════════════════
         -- PRIORIDADE 3: BAÚS (só se não há frutas)
         -- ═══════════════════════════════════════════════════════
-        if not hasFruitToCollect and (not EnableFruitCollect or not FindNearestFruit()) and not isDoingRaid then
+        if not isDoingRaid and not hasFruitToCollect then
             -- Se coleta de baús está ATIVADA
             if EnableChestCollect and not isCollectingChests then
                 isCollectingChests = true
@@ -1218,10 +1218,19 @@ task.spawn(function()
                     pcall(TPReturner)
                 end
             else
-                -- Se coleta de baús DESATIVADA e sem frutas, hop direto
-                RemoveHighlight()
-                task.wait(ServerHopDelay)
-                pcall(TPReturner)
+                -- Coleta de baús DESATIVADA: verifica se deve fazer hop
+                local shouldHop = true
+                
+                -- Se coleta de frutas está ativada, só faz hop se não houver frutas
+                if EnableFruitCollect and FindNearestFruit() then
+                    shouldHop = false
+                end
+                
+                if shouldHop then
+                    RemoveHighlight()
+                    task.wait(ServerHopDelay)
+                    pcall(TPReturner)
+                end
             end
         end
     end
