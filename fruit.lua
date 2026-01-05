@@ -233,7 +233,7 @@ local function setupHighlight(char)
     local box = Instance.new("SelectionBox")
     box.Name = "GlowBox"
     box.Adornee = char
-    box.LineThickness = 0.1  -- Espessura da linha (ajuste aqui: 0.01 a 0.1)
+    box.LineThickness = 0.05  -- Espessura da linha (ajuste aqui: 0.01 a 0.1)
     box.Color3 = Color3.fromRGB(0, 128, 255)
     box.SurfaceTransparency = 1  -- Apenas contorno
     box.Parent = char
