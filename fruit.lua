@@ -225,8 +225,8 @@ local function setupHighlight(char)
     h.FillTransparency = 1  -- Totalmente transparente (sem preenchimento)
     h.OutlineTransparency = 0  -- Outline visível
     h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop  -- Sempre visível
-    h.FillColor = Color3.fromRGB(0, 128, 255)
-    h.OutlineColor = Color3.fromRGB(0, 128, 255)
+    h.FillColor = Color3.fromRGB(51, 153, 255)
+    h.OutlineColor = Color3.fromRGB(51, 153, 255)
     h.Parent = char
 end
 
