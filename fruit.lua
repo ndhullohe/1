@@ -22,6 +22,14 @@ local ChestCount = config["ChestCount"] or 5
 local isTweening = false
 local isCollectingChests = false
 
+-- Converte FruitCategories em set para lookup rápido
+local allowedCategoriesSet = {}
+if FruitCategories and type(FruitCategories) == "table" and #FruitCategories > 0 then
+    for _, category in ipairs(FruitCategories) do
+        allowedCategoriesSet[category] = true
+    end
+end
+
 -- ═══════════════════════════════════════════════════════
 -- CONSTANTES E TABELAS
 -- ═══════════════════════════════════════════════════════
@@ -273,7 +281,7 @@ task.spawn(function()
 end)
 
 -- ═══════════════════════════════════════════════════════
--- FUNÇÕES: Noclip (Atravessar Paredes)
+-- FUNÇÕES: Noclip
 -- ═══════════════════════════════════════════════════════
 task.spawn(function()
     local lastUpdate = 0
@@ -354,22 +362,16 @@ end)
 -- FUNÇÕES: Utilitárias
 -- ═══════════════════════════════════════════════════════
 local function IsCategoryAllowed(fruitName)
-    -- Se FruitCategories não definido ou vazio, permite todas
-    if not FruitCategories or type(FruitCategories) ~= "table" or #FruitCategories == 0 then
+    -- Se allowedCategoriesSet vazio, permite todas
+    if not next(allowedCategoriesSet) then
         return true
     end
     
     local category = fruitCategories[fruitName]
     if not category then return true end  -- Fruta desconhecida = permite
     
-    -- Verifica se a categoria está na lista permitida
-    for _, allowedCategory in ipairs(FruitCategories) do
-        if category == allowedCategory then
-            return true
-        end
-    end
-    
-    return false
+    -- Lookup O(1) ao invés de loop O(n)
+    return allowedCategoriesSet[category] == true
 end
 
 local function RemoveHighlight()
@@ -429,13 +431,6 @@ local function TweenToPosition(targetCFrame, targetObject)
 
     local dist = (targetCFrame.Position - hrp.Position).Magnitude
     if dist < 5 then return true end
-
-    -- Anti-colisão melhorado: desativa colisão de TODAS as partes
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide then
-            part.CanCollide = false
-        end
-    end
 
     -- SimulationRadius infinito para melhor controle
     pcall(function()
