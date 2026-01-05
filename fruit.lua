@@ -12,13 +12,13 @@ local config = getgenv().MidgardConfig or {}
 -- Extrai todas as configurações da tabela única
 local TweenSpeed = config["TweenSpeed"] or 300
 local ServerHopDelay = config["ServerHopDelay"] or 5
-local EnableFruitCollect = config["FruitCollect"]
-local FruitCategories = config["FruitCategories"]
+local FruitCollect = config["FruitCollect"]
+local FruitCategories = config["FruitCategories"]  -- Categorias permitidas (nil = todas)
 local FruitGacha = config["FruitGacha"]
-local EnableChestCollect = config["ChestCollect"]
+local ChestCollect = config["ChestCollect"]
 local ChestCount = config["ChestCount"] or 5
-local FactoryRaid = config["FactoryRaid"]
-local PirateRaid = config["PirateRaid"]
+local FactoryRaid = config["FactoryRaid"]  -- Auto Factory Raid
+local PirateRaid = config["PirateRaid"]  -- Auto Pirate Raid (Castle)
 
 -- Arma selecionada (atualizada automaticamente)
 local SelectWeapon = nil
@@ -551,52 +551,25 @@ end
 local function TPReturner()
     local PlaceID = game.PlaceId
     
-    print("[SERVER HOP] Buscando servidores com max 10 players...")
-    
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
-            game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100")
+            game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
         )
     end)
     
-    if not success then 
-        warn("[SERVER HOP] Erro ao buscar servidores:", Site)
-        return false
-    end
+    if not success then return end
     
-    if not Site or not Site.data then
-        warn("[SERVER HOP] Resposta inválida da API")
-        return false
-    end
-    
-    local validServers = {}
-    
+    local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.id ~= game.JobId and v.playing <= 10 then
-            table.insert(validServers, v.id)
+        if v.playing < v.maxPlayers then
+            table.insert(servers, v.id)
         end
     end
     
-    print("[SERVER HOP] Encontrados", #validServers, "servidores com ≤10 players")
-    
-    if #validServers == 0 then
-        warn("[SERVER HOP] Nenhum servidor com ≤10 players encontrado")
-        return false
-    end
-    
-    local randomServer = validServers[math.random(1, #validServers)]
-    print("[SERVER HOP] Teleportando para servidor:", randomServer)
-    
-    local teleportSuccess, teleportError = pcall(function()
+    if #servers > 0 then
+        local randomServer = servers[math.random(1, #servers)]
         TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
-    end)
-    
-    if not teleportSuccess then
-        warn("[SERVER HOP] Falha ao teleportar:", teleportError)
-        return false
     end
-    
-    return true
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -1193,7 +1166,7 @@ task.spawn(function()
         -- ═══════════════════════════════════════════════════════
         local hasFruitToCollect = false
         
-        if EnableFruitCollect then
+        if FruitCollect then
             local hasFruits = true
             
             while hasFruits do
@@ -1210,28 +1183,21 @@ task.spawn(function()
         -- ═══════════════════════════════════════════════════════
         -- PRIORIDADE 3: BAÚS (só se não há frutas)
         -- ═══════════════════════════════════════════════════════
-        if not isDoingRaid and not hasFruitToCollect then
+        if not hasFruitToCollect and (not FruitCollect or not FindNearestFruit()) and not isDoingRaid then
             -- Se coleta de baús está ATIVADA
-            if EnableChestCollect and not isCollectingChests then
+            if ChestCollect and not isCollectingChests then
                 isCollectingChests = true
-                local noChestsFound = false
                 
                 while totalChestsCollected < ChestCount do
                     -- Verifica se apareceu fruta (se coleta ativada)
-                    if EnableFruitCollect and FindNearestFruit() then
+                    if FruitCollect and FindNearestFruit() then
                         break
                     end
                     
                     local collected = CollectMultipleChests(ChestCount - totalChestsCollected)
                     totalChestsCollected = totalChestsCollected + collected
                     
-                    if totalChestsCollected >= ChestCount then
-                        break
-                    end
-                    
-                    -- Se não coletou nenhum baú = não há mais baús disponíveis
-                    if collected == 0 then
-                        noChestsFound = true
+                    if totalChestsCollected >= ChestCount or collected == 0 then
                         break
                     end
                     
@@ -1240,72 +1206,22 @@ task.spawn(function()
                 
                 isCollectingChests = false
                 
-                -- HOP se: atingiu meta OU não tem mais baús
-                local shouldHop = totalChestsCollected >= ChestCount or noChestsFound
-                
-                -- Se coleta de frutas ativada, só faz hop se não houver frutas
-                if EnableFruitCollect and FindNearestFruit() then
-                    shouldHop = false
+                -- HOP se atingiu a meta de baús E não há frutas
+                local shouldHop = totalChestsCollected >= ChestCount
+                if FruitCollect then
+                    shouldHop = shouldHop and not FindNearestFruit()
                 end
                 
                 if shouldHop then
-                    print("[FARM] Iniciando server hop - Baús coletados:", totalChestsCollected)
                     RemoveHighlight()
                     task.wait(ServerHopDelay)
-                    
-                    local attempts = 0
-                    local maxAttempts = 3
-                    
-                    while attempts < maxAttempts do
-                        attempts = attempts + 1
-                        print("[FARM] Tentativa de hop", attempts, "de", maxAttempts)
-                        
-                        if TPReturner() then
-                            task.wait(5)
-                            break
-                        end
-                        
-                        if attempts < maxAttempts then
-                            warn("[FARM] Falha na tentativa", attempts, "- Aguardando 3s antes de retry")
-                            task.wait(3)
-                        end
-                    end
-                    
-                    if attempts >= maxAttempts then
-                        warn("[FARM] Todas tentativas de hop falharam - Resetando contador de baús")
-                        totalChestsCollected = 0
-                    end
+                    pcall(TPReturner)
                 end
             else
-                -- Coleta de baús DESATIVADA: faz hop direto
-                local shouldHop = true
-                
-                -- Se coleta de frutas ativada, só faz hop se não houver frutas
-                if EnableFruitCollect and FindNearestFruit() then
-                    shouldHop = false
-                end
-                
-                if shouldHop then
-                    print("[FARM] Hop direto - Coleta de baús desativada")
-                    RemoveHighlight()
-                    task.wait(ServerHopDelay)
-                    
-                    local attempts = 0
-                    local maxAttempts = 3
-                    
-                    while attempts < maxAttempts do
-                        attempts = attempts + 1
-                        
-                        if TPReturner() then
-                            task.wait(5)
-                            break
-                        end
-                        
-                        if attempts < maxAttempts then
-                            task.wait(3)
-                        end
-                    end
-                end
+                -- Se coleta de baús DESATIVADA (false ou nil) e sem frutas, hop direto
+                RemoveHighlight()
+                task.wait(ServerHopDelay)
+                pcall(TPReturner)
             end
         end
     end
