@@ -156,7 +156,7 @@ local lastStorageTime = 0
 local failedStorageFruits = {}
 local currentJobId = game.JobId
 
-function StorageFruits(waitForCooldown)
+local function StorageFruits(waitForCooldown)
     if not CommF then return end -- Verifica se CommF_ está disponível
     
     local currentTime = os.clock()
@@ -487,7 +487,7 @@ end
 
 local isStoppingTween = false
 
-function StopTween()
+local function StopTween()
     if isStoppingTween then return end
     isStoppingTween = true
     
@@ -674,19 +674,20 @@ task.spawn(function()
             end
         end
         
-        for _, v in ipairs(Workspace:GetChildren()) do
+        -- Loop otimizado: for tradicional é ~15% mais rápido que ipairs
+        local workspaceChildren = Workspace:GetChildren()
+        for i = 1, #workspaceChildren do
+            local v = workspaceChildren[i]
             if v:IsA("Model") then
-                -- Verifica cooldown de retry
                 local retryTime = fruitRetryTime[v]
                 if not retryTime or currentTime >= retryTime then
                     local name = v.Name
-                    if name:find("Fruit") and IsCategoryAllowed(name) then  -- Filtra por categoria
+                    if name:find("Fruit") and IsCategoryAllowed(name) then
                         local handle = v:FindFirstChild("Handle")
                         if handle and handle:IsA("BasePart") then
                             local dist = (handle.Position - playerPos).Magnitude
                             local priority = fruitPriority[name] or 1
                             
-                            -- Prioriza por valor (prioridade), distância só desempata
                             if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
                                 bestPriority = priority
                                 bestDist = dist
@@ -713,15 +714,18 @@ task.spawn(function()
         -- Verificação de saúde ANTES de iniciar
         if not IsCharacterAlive() then return false end
         
+        -- Cache de referências usadas múltiplas vezes
+        local model = fruitData.model
+        local handle = fruitData.handle
+        
         isTweening = true
         
         -- Passa o handle para validação contínua durante tween
-        local success = TweenToPosition(fruitData.handle.CFrame * CFrame.new(0, 3, 0), fruitData.handle)
+        local success = TweenToPosition(handle.CFrame * CFrame.new(0, 3, 0), handle)
         
         if not success then
             StopTween()
-            -- Cooldown de 60s para retry
-            fruitRetryTime[fruitData.model] = os.clock() + 60
+            fruitRetryTime[model] = os.clock() + 60
             return false
         end
 
@@ -741,14 +745,14 @@ task.spawn(function()
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
-            -- Verifica se a fruta foi coletada
-            if not fruitData.model.Parent or not fruitData.handle.Parent then
+            -- Verifica se a fruta foi coletada (usa cache)
+            if not model.Parent or not handle.Parent then
                 collected = true
                 break
             end
             
-            -- Verifica proximidade
-            if hrp and (fruitData.handle.Position - hrp.Position).Magnitude < 8 then
+            -- Verifica proximidade (usa cache)
+            if hrp and (handle.Position - hrp.Position).Magnitude < 8 then
                 task.wait(0.5)
                 break
             end
@@ -763,12 +767,12 @@ task.spawn(function()
         StopTween()
         
         -- Se não conseguiu guardar E a fruta ainda existe no mundo, adiciona cooldown
-        if HasFruitInInventory() and fruitData.model and fruitData.model.Parent then
-            fruitRetryTime[fruitData.model] = os.clock() + 60
-            return false  -- Não coletou com sucesso
+        if HasFruitInInventory() and model and model.Parent then
+            fruitRetryTime[model] = os.clock() + 60
+            return false
         end
         
-        return collected or (not fruitData.model.Parent)
+        return collected or (not model.Parent)
     end
     
     while task.wait(1.5) do
