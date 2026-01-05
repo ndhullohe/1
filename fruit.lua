@@ -132,7 +132,15 @@ local castleRaidMobs = {
     "Arctic Warrior", "Snow Lurker", "Sea Soldier", "Water Fighter"
 }
 
--- Cache de serviços (otimização)
+-- Constantes de timing (otimização e manutenibilidade)
+local TICK_RATE = 0.05
+local ATTACK_DELAY = 0.1
+local TWEEN_WAIT = 0.3
+local STORAGE_COOLDOWN = 2
+local FRUIT_RETRY_COOLDOWN = 60
+local NOCLIP_UPDATE_RATE = 0.15
+
+-- Cache de serviços
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -142,9 +150,12 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Workspace = game:GetService("Workspace")
 
--- Cache de Remotes (usado em várias partes do script)
+-- Cache de Remotes
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 15)
 local CommF = Remotes and Remotes:WaitForChild("CommF_", 10)
+
+-- Cache de Workspace.Enemies (otimização: acessado frequentemente)
+local EnemiesFolder = Workspace:WaitForChild("Enemies", 10)
 
 -- ═══════════════════════════════════════════════════════
 -- INICIALIZAÇÃO: Setup Inicial do Script
@@ -193,19 +204,15 @@ local failedStorageFruits = {}
 local currentJobId = game.JobId
 
 local function StorageFruits(waitForCooldown)
-    if not CommF then return end -- Verifica se CommF_ está disponível
+    if not CommF then return end
     
     local currentTime = os.clock()
     local timeSinceLastCall = currentTime - lastStorageTime
     
-    if timeSinceLastCall < 2 then
-        if waitForCooldown then
-            local waitTime = 2 - timeSinceLastCall
-            task.wait(waitTime)
-            lastStorageTime = os.clock()
-        else
-            return
-        end
+    if timeSinceLastCall < STORAGE_COOLDOWN then
+        if not waitForCooldown then return end
+        task.wait(STORAGE_COOLDOWN - timeSinceLastCall)
+        lastStorageTime = os.clock()
     else
         lastStorageTime = currentTime
     end
@@ -318,7 +325,7 @@ task.spawn(function()
     
     RunService.Stepped:Connect(function()
         local now = os.clock()
-        if now - lastUpdate < 0.15 then return end  -- Limita a ~6-7x por segundo
+        if now - lastUpdate < NOCLIP_UPDATE_RATE then return end
         lastUpdate = now
         
         local char = LocalPlayer.Character
@@ -730,34 +737,28 @@ local function GetNearestEnemy(maxDistance, mobNames)
     local char = LocalPlayer.Character
     if not char then return nil end
     local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return nil end
+    if not hrp or not EnemiesFolder then return nil end
     
     local playerPos = hrp.Position
-    local nearest = nil
-    local minDist = maxDistance or math.huge
+    local nearest, minDist = nil, maxDistance or math.huge
     
-    local enemies = Workspace:FindFirstChild("Enemies")
-    if not enemies then return nil end
+    -- Converte mobNames em set para lookup O(1)
+    local mobSet = nil
+    if mobNames then
+        mobSet = {}
+        for _, name in ipairs(mobNames) do
+            mobSet[name] = true
+        end
+    end
     
-    for _, enemy in ipairs(enemies:GetChildren()) do
+    for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         if enemy:IsA("Model") then
             local enemyHrp = enemy:FindFirstChild("HumanoidRootPart")
             local enemyHum = enemy:FindFirstChild("Humanoid")
             
             if enemyHrp and enemyHum and enemyHum.Health > 0 then
-                -- Se mobNames fornecido, filtra por nome
-                local nameMatch = true
-                if mobNames then
-                    nameMatch = false
-                    for _, mobName in ipairs(mobNames) do
-                        if enemy.Name == mobName then
-                            nameMatch = true
-                            break
-                        end
-                    end
-                end
-                
-                if nameMatch then
+                -- Filtro por nome usando set lookup O(1)
+                if not mobSet or mobSet[enemy.Name] then
                     local dist = (enemyHrp.Position - playerPos).Magnitude
                     if dist < minDist then
                         minDist = dist
@@ -780,63 +781,45 @@ local factoryRaidActive = false
 local function DoFactoryRaid()
     if not IsCharacterAlive() then return false end
     
-    -- Procura o Core (se existe = raid está ativo)
     local core = GetNearestEnemy(nil, {"Core"})
+    if not core then return false end
     
-    if core then
-        factoryRaidActive = true
-        isDoingRaid = true
+    factoryRaidActive = true
+    isDoingRaid = true
+    
+    if SelectWeapon then EquipWeapon(SelectWeapon) end
+    
+    local coreHrp = core:FindFirstChild("HumanoidRootPart")
+    if coreHrp then
+        isTweening = true
+        TweenToPosition(factoryRaidPos, nil)
         
-        -- Equipa arma se configurada
-        if SelectWeapon then
-            EquipWeapon(SelectWeapon)
-        end
-        
-        local coreHrp = core:FindFirstChild("HumanoidRootPart")
-        if coreHrp then
-            -- Tween até o Core
-            isTweening = true
-            TweenToPosition(factoryRaidPos, nil)
+        repeat
+            task.wait(TICK_RATE)
             
-            -- Loop de ataque
-            repeat
-                task.wait(0.05)
-                
-                -- Valida que ainda está vivo e raid ativa
-                if not IsCharacterAlive() or not FactoryRaid then
-                    factoryRaidActive = false
-                    break
-                end
-                
-                -- Verifica se Core ainda existe
-                local coreHum = core:FindFirstChild("Humanoid")
-                if not coreHum or coreHum.Health <= 0 then
-                    factoryRaidActive = false
-                    break
-                end
-                
-                -- Reequipa arma se necessário
-                if SelectWeapon then
-                    local char = LocalPlayer.Character
-                    local equippedTool = char and char:FindFirstChildOfClass("Tool")
-                    if not equippedTool or equippedTool.Name ~= SelectWeapon then
-                        EquipWeapon(SelectWeapon)
-                    end
-                end
-                
-                -- Ataca o Core
-                AttackEnemy(core)
-                
-            until not core or not core.Parent or not factoryRaidActive
+            if not IsCharacterAlive() or not FactoryRaid then break end
             
-            StopTween()
-        end
+            local coreHum = core:FindFirstChild("Humanoid")
+            if not coreHum or coreHum.Health <= 0 then break end
+            
+            if SelectWeapon then
+                local char = LocalPlayer.Character
+                local equippedTool = char and char:FindFirstChildOfClass("Tool")
+                if not equippedTool or equippedTool.Name ~= SelectWeapon then
+                    EquipWeapon(SelectWeapon)
+                end
+            end
+            
+            AttackEnemy(core)
+            
+        until not core or not core.Parent
         
-        factoryRaidActive = false
+        StopTween()
     end
     
+    factoryRaidActive = false
     isDoingRaid = false
-    return core ~= nil
+    return true
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -847,27 +830,19 @@ local pirateRaidCheckPos = CFrame.new(-5539.3115234375, 313.800537109375, -2972.
 local pirateRaidActive = false
 
 local function GetPirateRaidBoss()
-    -- Detecta o boss (inimigo com MAIOR HP do raid)
-    local enemies = Workspace:FindFirstChild("Enemies")
-    if not enemies then return nil end
+    if not EnemiesFolder then return nil end
     
-    local boss = nil
-    local maxHP = 0
+    local boss, maxHP = nil, 0
+    local mobSet = {}
+    for _, name in ipairs(castleRaidMobs) do
+        mobSet[name] = true
+    end
     
-    for _, enemy in ipairs(enemies:GetChildren()) do
+    for _, enemy in pairs(EnemiesFolder:GetChildren()) do
         if enemy:IsA("Model") then
             local enemyHum = enemy:FindFirstChild("Humanoid")
-            if enemyHum and enemyHum.Health > 0 then
-                -- Verifica se é mob do pirate raid
-                local isRaidMob = false
-                for _, mobName in ipairs(castleRaidMobs) do
-                    if enemy.Name == mobName then
-                        isRaidMob = true
-                        break
-                    end
-                end
-                
-                if isRaidMob and enemyHum.MaxHealth > maxHP then
+            if enemyHum and enemyHum.Health > 0 and mobSet[enemy.Name] then
+                if enemyHum.MaxHealth > maxHP then
                     maxHP = enemyHum.MaxHealth
                     boss = enemy
                 end
@@ -904,7 +879,7 @@ local function DoPirateRaid()
             
             -- Ataca boss até morrer
             repeat
-                task.wait(0.05)
+                task.wait(TICK_RATE)
                 
                 if not IsCharacterAlive() or not PirateRaid then
                     pirateRaidActive = false
@@ -959,17 +934,13 @@ local function DoPirateRaid()
                 
                 local attackStart = os.clock()
                 while enemy and enemy.Parent and IsCharacterAlive() and pirateRaidActive do
-                    -- PRIORIDADE: Verifica se boss spawnou
-                    local newBoss = GetPirateRaidBoss()
-                    if newBoss then
-                        break  -- Para de atacar mob normal e vai para boss
-                    end
+                    if GetPirateRaidBoss() then break end
                     
                     local enemyHum = enemy:FindFirstChild("Humanoid")
                     if not enemyHum or enemyHum.Health <= 0 then break end
                     
                     AttackEnemy(enemy)
-                    task.wait(0.1)
+                    task.wait(ATTACK_DELAY)
                     
                     if os.clock() - attackStart > 15 then break end
                 end
@@ -1132,17 +1103,15 @@ task.spawn(function()
             end
         until (os.clock() - startWait > 10)
 
-        task.wait(0.3)
+        task.wait(TWEEN_WAIT)
         
-        -- Tenta guardar frutas
         StorageFruits(true)
         task.wait(0.7)
         
         StopTween()
         
-        -- Se não conseguiu guardar E a fruta ainda existe no mundo, adiciona cooldown
         if HasFruitInInventory() and model and model.Parent then
-            fruitRetryTime[model] = os.clock() + 60
+            fruitRetryTime[model] = os.clock() + FRUIT_RETRY_COOLDOWN
             return false
         end
         
@@ -1203,13 +1172,11 @@ task.spawn(function()
             while hasFruits do
                 local fruitData = FindNearestFruit()
                 
-                if fruitData then
-                    hasFruitToCollect = true
-                    FruitCollect(fruitData)
-                    task.wait(0.3)
-                else
-                    hasFruits = false
-                end
+                if not fruitData then break end
+                
+                hasFruitToCollect = true
+                FruitCollect(fruitData)
+                task.wait(TWEEN_WAIT)
             end
         end
         
