@@ -228,15 +228,6 @@ local function setupHighlight(char)
     h.FillColor = Color3.fromRGB(0, 128, 255)
     h.OutlineColor = Color3.fromRGB(0, 128, 255)
     h.Parent = char
-    
-    -- Adiciona SelectionBox para brilho mais grosso
-    local box = Instance.new("SelectionBox")
-    box.Name = "GlowBox"
-    box.Adornee = char
-    box.LineThickness = 0.05  -- Espessura da linha (ajuste aqui: 0.01 a 0.1)
-    box.Color3 = Color3.fromRGB(0, 128, 255)
-    box.SurfaceTransparency = 1  -- Apenas contorno
-    box.Parent = char
 end
 
 -- Setup inicial (aguarda character estar pronto)
