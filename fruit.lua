@@ -555,7 +555,6 @@ end
 -- ═══════════════════════════════════════════════════════
 local function TPReturner()
     local PlaceID = game.PlaceId
-    if not PlaceID then return end
     
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
@@ -563,11 +562,11 @@ local function TPReturner()
         )
     end)
     
-    if not success or not Site or not Site.data then return end
+    if not success then return end
     
     local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers and v.id ~= game.JobId then
+        if v.playing < v.maxPlayers then
             table.insert(servers, v.id)
         end
     end
