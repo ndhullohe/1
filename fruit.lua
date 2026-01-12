@@ -556,44 +556,69 @@ end
 local function TPReturner()
     local PlaceID = game.PlaceId
     
+    print("[HOP] Iniciando server hop para PlaceID: " .. PlaceID)
+    print("[HOP] JobId atual: " .. game.JobId)
+    
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
             game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100")
         )
     end)
     
-    if not success or not Site or not Site.data then 
-        warn("[HOP] Falha ao obter lista de servidores")
+    if not success then 
+        warn("[HOP] Erro ao fazer requisição HTTP")
         return 
     end
     
+    if not Site or not Site.data then
+        warn("[HOP] API retornou dados inválidos")
+        return
+    end
+    
+    print("[HOP] API retornou " .. #Site.data .. " servidores")
+    
     local servers = {}
+    local allServers = 0
+    local fullServers = 0
+    
     for _, v in ipairs(Site.data) do
+        allServers = allServers + 1
+        
         if v.id and v.playing and v.maxPlayers then
-            if v.playing < v.maxPlayers and v.id ~= game.JobId then
+            if v.playing >= v.maxPlayers then
+                fullServers = fullServers + 1
+            elseif v.id ~= game.JobId then
                 table.insert(servers, {id = v.id, players = v.playing})
             end
         end
     end
     
+    print("[HOP] Total: " .. allServers .. " | Cheios: " .. fullServers .. " | Disponíveis: " .. #servers)
+    
     if #servers == 0 then
-        warn("[HOP] Nenhum servidor disponível encontrado")
+        warn("[HOP] Nenhum servidor disponível - tentando sem filtro JobId")
+        
+        -- Tenta sem filtrar JobId (API do Roblox previne mesmo servidor)
+        for _, v in ipairs(Site.data) do
+            if v.id and v.playing and v.maxPlayers and v.playing < v.maxPlayers then
+                table.insert(servers, {id = v.id, players = v.playing})
+            end
+        end
+        
+        print("[HOP] Sem filtro JobId: " .. #servers .. " servidores")
+    end
+    
+    if #servers == 0 then
+        warn("[HOP] Nenhum servidor disponível mesmo sem filtro")
         return
     end
     
-    -- Tenta teleportar para um servidor aleatório
     local randomIndex = math.random(1, #servers)
     local targetServer = servers[randomIndex]
     
-    print("[HOP] Tentando servidor com " .. targetServer.players .. " players")
+    print("[HOP] Teleportando para servidor: " .. targetServer.id .. " (" .. targetServer.players .. " players)")
     
-    local teleportSuccess = pcall(function()
-        TeleportService:TeleportToPlaceInstance(PlaceID, targetServer.id, LocalPlayer)
-    end)
-    
-    if not teleportSuccess then
-        warn("[HOP] Falha ao teleportar")
-    end
+    TeleportService:TeleportToPlaceInstance(PlaceID, targetServer.id, LocalPlayer)
 end
 
 -- ═══════════════════════════════════════════════════════
