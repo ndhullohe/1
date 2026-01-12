@@ -562,13 +562,37 @@ local function TPReturner()
         )
     end)
     
-    if not success or not Site or not Site.data then return end
+    if not success or not Site or not Site.data then 
+        warn("[HOP] Falha ao obter lista de servidores")
+        return 
+    end
     
+    local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers and v.id ~= game.JobId then
-            TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-            break
+        if v.id and v.playing and v.maxPlayers then
+            if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                table.insert(servers, {id = v.id, players = v.playing})
+            end
         end
+    end
+    
+    if #servers == 0 then
+        warn("[HOP] Nenhum servidor disponível encontrado")
+        return
+    end
+    
+    -- Tenta teleportar para um servidor aleatório
+    local randomIndex = math.random(1, #servers)
+    local targetServer = servers[randomIndex]
+    
+    print("[HOP] Tentando servidor com " .. targetServer.players .. " players")
+    
+    local teleportSuccess = pcall(function()
+        TeleportService:TeleportToPlaceInstance(PlaceID, targetServer.id, LocalPlayer)
+    end)
+    
+    if not teleportSuccess then
+        warn("[HOP] Falha ao teleportar")
     end
 end
 
