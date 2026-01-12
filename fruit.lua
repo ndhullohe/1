@@ -555,70 +555,77 @@ end
 -- ═══════════════════════════════════════════════════════
 local function TPReturner()
     local PlaceID = game.PlaceId
+    local JobId = game.JobId
     
-    print("[HOP] Iniciando server hop para PlaceID: " .. PlaceID)
-    print("[HOP] JobId atual: " .. game.JobId)
+    print("[HOP] Iniciando server hop...")
+    print("[HOP] PlaceID: " .. PlaceID)
+    print("[HOP] JobId atual: " .. JobId)
     
-    local success, Site = pcall(function()
-        return HttpService:JSONDecode(
-            game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100")
-        )
+    local success, result = pcall(function()
+        local url = 'https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Desc&limit=100'
+        print("[HOP] Fazendo requisição para: " .. url)
+        
+        local data = game:HttpGet(url)
+        print("[HOP] Dados recebidos (tamanho): " .. #data .. " bytes")
+        
+        return HttpService:JSONDecode(data)
     end)
     
     if not success then 
-        warn("[HOP] Erro ao fazer requisição HTTP")
+        warn("[HOP] ERRO na requisição HTTP: " .. tostring(result))
         return 
     end
     
-    if not Site or not Site.data then
-        warn("[HOP] API retornou dados inválidos")
+    local Site = result
+    
+    if not Site then
+        warn("[HOP] Site é nil")
         return
     end
     
-    print("[HOP] API retornou " .. #Site.data .. " servidores")
+    if not Site.data then
+        warn("[HOP] Site.data é nil - Response completa:")
+        warn(tostring(Site))
+        return
+    end
+    
+    print("[HOP] Servidores encontrados: " .. #Site.data)
     
     local servers = {}
-    local allServers = 0
-    local fullServers = 0
     
-    for _, v in ipairs(Site.data) do
-        allServers = allServers + 1
+    for i, v in ipairs(Site.data) do
+        print(string.format("[HOP] Servidor %d: id=%s, playing=%s/%s", 
+            i, tostring(v.id), tostring(v.playing), tostring(v.maxPlayers)))
         
-        if v.id and v.playing and v.maxPlayers then
-            if v.playing >= v.maxPlayers then
-                fullServers = fullServers + 1
-            elseif v.id ~= game.JobId then
+        if type(v.id) == "string" and type(v.playing) == "number" and type(v.maxPlayers) == "number" then
+            if v.playing < v.maxPlayers and v.id ~= JobId then
                 table.insert(servers, {id = v.id, players = v.playing})
+                print("[HOP] ✓ Servidor disponível adicionado")
             end
         end
     end
     
-    print("[HOP] Total: " .. allServers .. " | Cheios: " .. fullServers .. " | Disponíveis: " .. #servers)
+    print("[HOP] Total de servidores válidos: " .. #servers)
     
     if #servers == 0 then
-        warn("[HOP] Nenhum servidor disponível - tentando sem filtro JobId")
-        
-        -- Tenta sem filtrar JobId (API do Roblox previne mesmo servidor)
-        for _, v in ipairs(Site.data) do
-            if v.id and v.playing and v.maxPlayers and v.playing < v.maxPlayers then
-                table.insert(servers, {id = v.id, players = v.playing})
-            end
-        end
-        
-        print("[HOP] Sem filtro JobId: " .. #servers .. " servidores")
-    end
-    
-    if #servers == 0 then
-        warn("[HOP] Nenhum servidor disponível mesmo sem filtro")
+        warn("[HOP] Nenhum servidor disponível para hop")
         return
     end
     
-    local randomIndex = math.random(1, #servers)
-    local targetServer = servers[randomIndex]
+    local randomServer = servers[math.random(1, #servers)]
     
-    print("[HOP] Teleportando para servidor: " .. targetServer.id .. " (" .. targetServer.players .. " players)")
+    print("[HOP] Selecionado: " .. randomServer.id .. " com " .. randomServer.players .. " players")
+    print("[HOP] Executando TeleportToPlaceInstance...")
     
-    TeleportService:TeleportToPlaceInstance(PlaceID, targetServer.id, LocalPlayer)
+    local teleportSuccess, teleportError = pcall(function()
+        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer.id, LocalPlayer)
+    end)
+    
+    if not teleportSuccess then
+        warn("[HOP] ERRO no teleporte: " .. tostring(teleportError))
+    else
+        print("[HOP] Teleporte iniciado com sucesso!")
+    end
 end
 
 -- ═══════════════════════════════════════════════════════
