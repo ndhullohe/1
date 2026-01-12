@@ -565,16 +565,18 @@ local function TPReturner()
     
     if not success or not Site or not Site.data then return end
     
-    local servers = {}
     for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers then
-            table.insert(servers, v.id)
+        if v and v.id and v.playing and v.maxPlayers then
+            if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                local hopSuccess = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
+                end)
+                
+                if hopSuccess then
+                    break
+                end
+            end
         end
-    end
-    
-    if #servers > 0 then
-        local randomServer = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
     end
 end
 
