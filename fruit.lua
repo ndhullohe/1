@@ -559,26 +559,22 @@ local function TPReturner()
     
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
-            game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
+            game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100")
         )
     end)
     
     if not success or not Site or not Site.data then return end
     
     local servers = {}
-    for _, v in pairs(Site.data) do
-        if v and v.id and v.playing and v.maxPlayers then
-            if v.playing < v.maxPlayers and v.playing >= 6 and v.playing <= 9 then
-                table.insert(servers, v.id)
-            end
+    for _, v in ipairs(Site.data) do
+        if v.playing < v.maxPlayers then
+            table.insert(servers, v.id)
         end
     end
     
     if #servers > 0 then
         local randomServer = servers[math.random(1, #servers)]
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
-        end)
+        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
     end
 end
 
