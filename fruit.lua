@@ -217,23 +217,24 @@ local function StorageFruits(waitForCooldown)
         lastStorageTime = currentTime
     end
     
-    pcall(function()
+    local success, err = pcall(function()
         local character = LocalPlayer.Character
         local backpack = LocalPlayer.Backpack
         if not character or not backpack then return end
 
-        -- Consolida backpack e character em uma lista
         local containers = {backpack, character}
-        for _, container in ipairs(containers) do
-            for _, tool in ipairs(container:GetChildren()) do
-                if not failedStorageFruits[tool] and tool:IsA("Tool") then
+        for _, container in pairs(containers) do
+            for _, tool in pairs(container:GetChildren()) do
+                if tool:IsA("Tool") and not failedStorageFruits[tool] then
                     local fruitCode = fruitStorageCodes[tool.Name]
                     if fruitCode then
-                        pcall(function()
+                        local storeSuccess = pcall(function()
                             CommF:InvokeServer("StoreFruit", fruitCode, tool)
                         end)
-                        task.wait(0.7)
-                        if container:FindFirstChild(tool.Name) == tool then
+                        
+                        task.wait(0.4)
+                        
+                        if not storeSuccess or (tool.Parent and tool.Parent == container) then
                             failedStorageFruits[tool] = true
                         end
                     end
@@ -376,17 +377,18 @@ end)
 
 -- Auto-cleanup: Remove BodyClip se morrer
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.5) do
         pcall(function()
             local char = LocalPlayer.Character
-            if char then
-                local hum = char:FindFirstChild("Humanoid")
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hum and hrp and hum.Health <= 0 then
-                    local bodyClip = hrp:FindFirstChild("BodyClip")
-                    if bodyClip then
-                        bodyClip:Destroy()
-                    end
+            if not char then return end
+            
+            local hum = char:FindFirstChild("Humanoid")
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            
+            if hum and hrp and hum.Health <= 0 then
+                local bodyClip = hrp:FindFirstChild("BodyClip")
+                if bodyClip and bodyClip.Parent then
+                    pcall(function() bodyClip:Destroy() end)
                 end
             end
         end)
@@ -457,10 +459,13 @@ local function TweenToPosition(targetCFrame, targetObject)
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
+    
+    -- Valida CFrame antes de processar
+    if not targetCFrame or typeof(targetCFrame) ~= "CFrame" then return false end
 
     -- Cancela tween anterior se existir
     if activeTween then
-        activeTween:Cancel()
+        pcall(function() activeTween:Cancel() end)
         activeTween = nil
     end
 
@@ -550,6 +555,7 @@ end
 -- ═══════════════════════════════════════════════════════
 local function TPReturner()
     local PlaceID = game.PlaceId
+    if not PlaceID then return end
     
     local success, Site = pcall(function()
         return HttpService:JSONDecode(
@@ -557,18 +563,22 @@ local function TPReturner()
         )
     end)
     
-    if not success then return end
+    if not success or not Site or not Site.data then return end
     
     local servers = {}
-    for _, v in ipairs(Site.data) do
-        if v.playing < v.maxPlayers and v.playing >= 6 and v.playing <= 9 then
-            table.insert(servers, v.id)
+    for _, v in pairs(Site.data) do
+        if v and v.id and v.playing and v.maxPlayers then
+            if v.playing < v.maxPlayers and v.playing >= 6 and v.playing <= 9 then
+                table.insert(servers, v.id)
+            end
         end
     end
     
     if #servers > 0 then
         local randomServer = servers[math.random(1, #servers)]
-        TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(PlaceID, randomServer, LocalPlayer)
+        end)
     end
 end
 
@@ -610,7 +620,7 @@ local function ChestCollect(chest)
         end
     until chest:GetAttribute("IsDisabled") or (os.clock() - startTime) > maxWaitTime
 
-    task.wait(0.2)
+    task.wait(0.1)
     StopTween()
     return true
 end
@@ -623,12 +633,14 @@ local function GetClosestChest()
     
     local playerPos = hrp.Position
     local chests = CollectionService:GetTagged("_ChestTagged")
+    if not chests or #chests == 0 then return nil end
+    
     local closest, minDist = nil, math.huge
     
-    for _, chest in ipairs(chests) do
-        if chest.Parent and not chest:GetAttribute("IsDisabled") then
+    for _, chest in pairs(chests) do
+        if chest and chest.Parent and not chest:GetAttribute("IsDisabled") then
             local ok, pos = pcall(function() return chest:GetPivot().Position end)
-            if ok then
+            if ok and pos then
                 local d = (pos - playerPos).Magnitude
                 if d < minDist then
                     minDist = d
@@ -665,14 +677,14 @@ end
 
 -- Auto-seleciona arma Melee do backpack
 task.spawn(function()
-    while task.wait(1) do
+    while task.wait(0.5) do
         pcall(function()
             local backpack = LocalPlayer.Backpack
             if not backpack then return end
             
-            -- Procura primeira arma Melee disponível
+            -- Procura primeira arma Melee disponível (ignora frutas)
             for _, weapon in ipairs(backpack:GetChildren()) do
-                if weapon:IsA("Tool") and weapon.ToolTip == "Melee" then
+                if weapon:IsA("Tool") and weapon.ToolTip == "Melee" and not weapon.Name:find("Fruit") then
                     SelectWeapon = weapon.Name
                     break
                 end
@@ -697,11 +709,18 @@ local function EquipWeapon(weaponName)
     -- Procura no backpack
     local weapon = backpack:FindFirstChild(weaponName)
     if weapon and weapon:IsA("Tool") then
-        pcall(function()
-            char.Humanoid:EquipTool(weapon)
+        -- Valida que a ferramenta não está bugada
+        local success = pcall(function()
+            if weapon.Parent ~= backpack then return end
+            local humanoid = char:FindFirstChild("Humanoid")
+            if not humanoid then return end
+            humanoid:EquipTool(weapon)
         end)
-        task.wait(0.3)
-        return true
+        
+        if success then
+            task.wait(0.15)
+            return true
+        end
     end
     
     return false
@@ -720,17 +739,22 @@ local function AttackEnemy(enemy)
     if not hrp or not enemyHrp or not enemyHum then return false end
     if enemyHum.Health <= 0 then return false end
     
-    -- Posiciona perto do inimigo
-    local attackPos = enemyHrp.CFrame * CFrame.new(0, 0, 3)
-    hrp.CFrame = attackPos
-    
-    -- Click para atacar (simula ataque básico)
-    pcall(function()
-        game:GetService("VirtualUser"):CaptureController()
-        game:GetService("VirtualUser"):ClickButton1(Vector2.new(850, 500))
+    -- Posiciona perto do inimigo com validação
+    local success = pcall(function()
+        local attackPos = enemyHrp.CFrame * CFrame.new(0, 0, 3)
+        hrp.CFrame = attackPos
     end)
     
-    return enemyHum.Health > 0
+    if not success then return false end
+    
+    -- Click para atacar
+    pcall(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton1(Vector2.new(850, 500))
+    end)
+    
+    return enemyHum and enemyHum.Health > 0
 end
 
 local function GetNearestEnemy(maxDistance, mobNames)
@@ -1019,24 +1043,26 @@ task.spawn(function()
             end
         end
         
-        -- Loop otimizado: for tradicional é ~15% mais rápido que ipairs
         local workspaceChildren = Workspace:GetChildren()
         for i = 1, #workspaceChildren do
             local v = workspaceChildren[i]
-            if v:IsA("Model") then
+            if v and v:IsA("Model") and v.Parent then
                 local retryTime = fruitRetryTime[v]
                 if not retryTime or currentTime >= retryTime then
                     local name = v.Name
-                    if name:find("Fruit") and IsCategoryAllowed(name) then
+                    if name and name:find("Fruit") and IsCategoryAllowed(name) then
                         local handle = v:FindFirstChild("Handle")
-                        if handle and handle:IsA("BasePart") then
-                            local dist = (handle.Position - playerPos).Magnitude
-                            local priority = fruitPriority[name] or 1
-                            
-                            if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
-                                bestPriority = priority
-                                bestDist = dist
-                                bestFruit = {model = v, handle = handle, distance = dist}
+                        if handle and handle:IsA("BasePart") and handle.Parent then
+                            local ok, pos = pcall(function() return handle.Position end)
+                            if ok and pos then
+                                local dist = (pos - playerPos).Magnitude
+                                local priority = fruitPriority[name] or 1
+                                
+                                if priority > bestPriority or (priority == bestPriority and dist < bestDist) then
+                                    bestPriority = priority
+                                    bestDist = dist
+                                    bestFruit = {model = v, handle = handle, distance = dist}
+                                end
                             end
                         end
                     end
@@ -1106,7 +1132,7 @@ task.spawn(function()
         task.wait(TWEEN_WAIT)
         
         StorageFruits(true)
-        task.wait(0.7)
+        task.wait(0.4)
         
         StopTween()
         
@@ -1118,7 +1144,7 @@ task.spawn(function()
         return collected or (not model.Parent)
     end
     
-    while task.wait(1) do
+    while task.wait(0.5) do
         -- ═══════════════════════════════════════════════════════
         -- PRIORIDADE 1: RAIDS (Factory e Pirate) - SEMPRE PRIMEIRO
         -- Executa apenas raid correspondente ao Sea atual
@@ -1132,7 +1158,7 @@ task.spawn(function()
                 if core then
                     DoFactoryRaid()
                     raidDone = true
-                    task.wait(0.5)
+                    task.wait(0.3)
                 end
             end
             
@@ -1150,14 +1176,14 @@ task.spawn(function()
                 if raidActive then
                     DoPirateRaid()
                     raidDone = true
-                    task.wait(0.5)
+                    task.wait(0.3)
                 end
             end
         end
         
         -- Se fez raid, pula para próxima iteração (raids têm prioridade total)
         if raidDone then
-            task.wait(0.5)
+            task.wait(0.2)
             continue
         end
         
@@ -1201,7 +1227,7 @@ task.spawn(function()
                         break
                     end
                     
-                    task.wait(0.5)
+                    task.wait(0.3)
                 end
                 
                 isCollectingChests = false
